@@ -3,12 +3,13 @@
 import { useTransition } from "react";
 import { deleteEntryAction } from "@/app/diary/actions";
 import { formatNutrient } from "@/lib/nutrients";
+import { formatQuantityLabel } from "@/lib/quantity";
 
 export type EntryRowData = {
   id: string;
   foodNameSnapshot: string;
-  servings: number;
-  servingUnit: string;
+  quantityValue: number;
+  quantityUnit: string;
   caloriesSnapshot: number;
 };
 
@@ -20,10 +21,10 @@ type EntryRowProps = {
 export function EntryRow({ entry, dateKey }: EntryRowProps) {
   const [pending, startTransition] = useTransition();
 
-  const servingLabel =
-    entry.servings === 1
-      ? `1 ${entry.servingUnit}`
-      : `${formatNutrient(entry.servings)} × ${entry.servingUnit}`;
+  const servingLabel = formatQuantityLabel(
+    entry.quantityValue,
+    entry.quantityUnit,
+  );
 
   return (
     <div className="flex items-start gap-3 border-t border-border px-4 py-3">

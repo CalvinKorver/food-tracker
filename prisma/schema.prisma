@@ -84,7 +84,12 @@ model FoodEntry {
   foodId                 String   @map("food_id") @db.Uuid
   loggedOn               DateTime @map("logged_on") @db.Date
   meal                   MealType
+  /** Normalized multiplier of the food's defined serving (for nutrient snapshots). */
   servings               Float
+  /** Amount the user typed when logging. */
+  quantityValue          Float    @map("quantity_value")
+  /** "serving" or the food's serving unit string (e.g. "g", "cup"). */
+  quantityUnit           String   @map("quantity_unit")
   foodNameSnapshot       String   @map("food_name_snapshot")
   caloriesSnapshot       Float    @map("calories_snapshot")
   proteinGSnapshot       Float    @map("protein_g_snapshot")

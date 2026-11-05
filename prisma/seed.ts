@@ -27,14 +27,26 @@ async function main() {
         externalId: `seed:${user.id}:oatmeal`,
       },
     },
-    update: {},
+    update: {
+      name: "Oatmeal, cooked",
+      servingQty: 234,
+      servingUnit: "g",
+      calories: 158,
+      proteinG: 5.5,
+      carbsG: 27,
+      fatG: 3.2,
+      fiberG: 4,
+      sugarG: 1.1,
+      sodiumMg: 9,
+    },
     create: {
       userId: user.id,
       source: FoodSource.custom,
       externalId: `seed:${user.id}:oatmeal`,
       name: "Oatmeal, cooked",
-      servingQty: 1,
-      servingUnit: "cup",
+      // Typical cooked oatmeal serving by weight (not raw).
+      servingQty: 234,
+      servingUnit: "g",
       calories: 158,
       proteinG: 5.5,
       carbsG: 27,
@@ -71,8 +83,17 @@ async function main() {
     },
   });
 
+  await prisma.favorite.upsert({
+    where: {
+      userId_foodId: { userId: user.id, foodId: chicken.id },
+    },
+    update: {},
+    create: { userId: user.id, foodId: chicken.id },
+  });
+
   console.log("Seeded user:", user.email, user.id);
   console.log("Seeded foods:", oatmeal.name, "|", chicken.name);
+  console.log("Seeded favorite:", chicken.name);
 }
 
 main()

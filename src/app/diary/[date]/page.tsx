@@ -1,11 +1,17 @@
 import { redirect } from "next/navigation";
-import { AddFoodStubBanner } from "@/components/diary/AddFoodStubBanner";
+import { AddFoodSheet } from "@/components/foods/AddFoodSheet";
 import { DayHeader } from "@/components/diary/DayHeader";
 import { DayTotalsCard } from "@/components/diary/DayTotalsCard";
 import { MealCard } from "@/components/diary/MealCard";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveDiaryDate } from "@/lib/dates";
 import { getDiaryDay } from "@/lib/diary";
+import { isMealType } from "@/lib/food-shared";
+import {
+  listAllCustomFoods,
+  listFavoriteFoods,
+  listRecentFoods,
+} from "@/lib/foods";
 
 type DiaryPageProps = {
   params: Promise<{ date: string }>;
@@ -25,13 +31,19 @@ export default async function DiaryPage({
     redirect("/diary/today");
   }
 
-  // Canonicalize /diary/today → keep "today" in URL; dated keys stay as YYYY-MM-DD
   const pathKey = dateParam === "today" ? "today" : resolved.key;
   if (dateParam !== "today" && dateParam !== resolved.key) {
     redirect(`/diary/${resolved.key}`);
   }
 
-  const day = await getDiaryDay(user.id, resolved.date);
+  const addMeal = add && isMealType(add) ? add : add ? "snack" : null;
+
+  const [day, recents, favorites, allFoods] = await Promise.all([
+    getDiaryDay(user.id, resolved.date),
+    addMeal ? listRecentFoods(user.id) : Promise.resolve([]),
+    addMeal ? listFavoriteFoods(user.id) : Promise.resolve([]),
+    addMeal ? listAllCustomFoods(user.id) : Promise.resolve([]),
+  ]);
 
   const mealCards = day.meals.map((group) => ({
     meal: group.meal,
@@ -39,8 +51,8 @@ export default async function DiaryPage({
     entries: group.entries.map((e) => ({
       id: e.id,
       foodNameSnapshot: e.foodNameSnapshot,
-      servings: e.servings,
-      servingUnit: e.food.servingUnit,
+      quantityValue: e.quantityValue,
+      quantityUnit: e.quantityUnit,
       caloriesSnapshot: e.caloriesSnapshot,
     })),
   }));
@@ -52,8 +64,6 @@ export default async function DiaryPage({
         prevKey={resolved.prevKey}
         nextKey={resolved.nextKey}
       />
-
-      {add ? <AddFoodStubBanner meal={add} dateKey={pathKey} /> : null}
 
       <DayTotalsCard totals={day.totals} />
 
@@ -68,6 +78,17 @@ export default async function DiaryPage({
           />
         ))}
       </section>
+
+      {addMeal ? (
+        <AddFoodSheet
+          meal={addMeal}
+          dateKey={pathKey}
+          loggedOnKey={resolved.key}
+          initialRecents={recents}
+          initialFavorites={favorites}
+          initialAll={allFoods}
+        />
+      ) : null}
     </div>
   );
 }

@@ -13,21 +13,14 @@ type MealCardProps = {
 };
 
 export function MealCard({ meal, label, dateKey, entries }: MealCardProps) {
-  const [open, setOpen] = useState(entries.length > 0);
+  const [open, setOpen] = useState(true);
 
   return (
     <div className="overflow-hidden rounded-2xl bg-surface">
-      <div className="flex items-center gap-2 px-2 py-2">
-        <Link
-          href={`/diary/${dateKey}?add=${meal}`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-2xl font-semibold text-accent-teal transition hover:bg-surface-hover"
-          aria-label={`Add food to ${label}`}
-        >
-          +
-        </Link>
+      <div className="flex items-center gap-1 px-2 py-2">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center justify-between rounded-xl px-2 py-2 text-left transition hover:bg-surface-hover"
+          className="flex min-w-0 flex-1 items-center rounded-xl px-3 py-2 text-left transition hover:bg-surface-hover"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
@@ -39,14 +32,15 @@ export function MealCard({ meal, label, dateKey, entries }: MealCardProps) {
               </span>
             ) : null}
           </span>
-          <span
-            className="text-text-muted transition"
-            style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
-            aria-hidden
-          >
-            ⌄
-          </span>
         </button>
+        <Link
+          href={`/diary/${dateKey}?add=${meal}`}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-2xl font-semibold text-accent-teal transition hover:bg-surface-hover"
+          aria-label={`Add food to ${label}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          +
+        </Link>
       </div>
 
       {open ? (
