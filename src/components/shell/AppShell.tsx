@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 px-4 pb-[calc(var(--nav-height)+1.5rem)] pt-[max(1rem,env(safe-area-inset-top))]">
           {children}
         </main>
-        <BottomNav onAdd={() => router.push("/diary/today?add=1")} />
+        <BottomNav onAdd={() => router.push("/diary/today?add=snack")} />
       </div>
     </div>
   );

@@ -97,6 +97,12 @@ async function main() {
   console.log("Generating Prisma client…");
   await run("npx", ["prisma", "generate"]);
 
+  console.log("Applying migrations…");
+  await run("npx", ["prisma", "migrate", "deploy"]);
+
+  console.log("Seeding database (idempotent)…");
+  await run("npx", ["prisma", "db", "seed"]);
+
   console.log("Local prerequisites ready.");
 }
 

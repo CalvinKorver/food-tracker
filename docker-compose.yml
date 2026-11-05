@@ -4,7 +4,8 @@ services:
     container_name: food-tracker-db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      # 5433 avoids clashing with a host Postgres often bound to 5432
+      - "5433:5432"
     environment:
       POSTGRES_USER: foodtracker
       POSTGRES_PASSWORD: foodtracker

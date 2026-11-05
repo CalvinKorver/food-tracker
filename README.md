@@ -19,7 +19,7 @@ That will:
 
 1. Create `.env` from `.env.example` if needed  
 2. Start Postgres with Docker Compose and wait until it’s healthy  
-3. Generate the Prisma client  
+3. Generate the Prisma client, apply migrations, and seed  
 4. Start the Next.js dev server  
 
 Open the URL printed in the terminal (usually **http://localhost:3000**). It redirects to `/diary/today`.
@@ -41,17 +41,28 @@ Optional: `PORT=3005 npm run local` to force a specific port.
 ## Stack
 
 - Next.js 15 (App Router) + TypeScript + Tailwind CSS v4
-- PostgreSQL via Docker Compose (`localhost:5432`)
+- PostgreSQL via Docker Compose (`localhost:5433` → container `5432`)
 - Prisma 7 (`@prisma/adapter-pg`)
 
 Default DB credentials (local only): user/password/db = `foodtracker`.
 
-Schema models and seeding are not applied yet (later Phase 1 steps). The app UI runs without migrations for now.
+```bash
+npm run db:migrate   # apply Prisma migrations
+npm run db:seed      # default user + sample custom foods
+```
+
+### Database
+
+| Command | Purpose |
+|---------|---------|
+| `npm run db:migrate` | Create/apply migrations (`prisma migrate dev`) |
+| `npm run db:seed` | Seed default user + sample foods |
+| `npm run db:reset` | Reset DB, re-apply migrations, seed |
 
 ## Troubleshooting
 
 **“Docker is not running”** — open Docker Desktop, wait until it’s idle, then `npm run local` again.
 
-**Port 5432 already in use** — stop the other Postgres, or change the host port in `docker-compose.yml` and `.env`.
+**DB auth / role errors** — confirm `.env` uses port **5433** (not 5432). A different Postgres on 5432 is common on macOS.
 
 **Wrong app on localhost:3000** — another project is bound to 3000; use the URL `npm run local` prints (it auto-selects a free port).

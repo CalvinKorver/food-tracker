@@ -1,66 +1,71 @@
+import { redirect } from "next/navigation";
+import { AddFoodStubBanner } from "@/components/diary/AddFoodStubBanner";
+import { DayHeader } from "@/components/diary/DayHeader";
+import { DayTotalsCard } from "@/components/diary/DayTotalsCard";
+import { MealCard } from "@/components/diary/MealCard";
+import { getCurrentUser } from "@/lib/current-user";
+import { resolveDiaryDate } from "@/lib/dates";
+import { getDiaryDay } from "@/lib/diary";
+
 type DiaryPageProps = {
   params: Promise<{ date: string }>;
+  searchParams: Promise<{ add?: string }>;
 };
 
-export default async function DiaryPage({ params }: DiaryPageProps) {
-  const { date } = await params;
-  const label = date === "today" ? "Today" : date;
+export default async function DiaryPage({
+  params,
+  searchParams,
+}: DiaryPageProps) {
+  const { date: dateParam } = await params;
+  const { add } = await searchParams;
+  const user = await getCurrentUser();
+  const resolved = resolveDiaryDate(dateParam, user.timezone);
+
+  if (!resolved) {
+    redirect("/diary/today");
+  }
+
+  // Canonicalize /diary/today → keep "today" in URL; dated keys stay as YYYY-MM-DD
+  const pathKey = dateParam === "today" ? "today" : resolved.key;
+  if (dateParam !== "today" && dateParam !== resolved.key) {
+    redirect(`/diary/${resolved.key}`);
+  }
+
+  const day = await getDiaryDay(user.id, resolved.date);
+
+  const mealCards = day.meals.map((group) => ({
+    meal: group.meal,
+    label: group.label,
+    entries: group.entries.map((e) => ({
+      id: e.id,
+      foodNameSnapshot: e.foodNameSnapshot,
+      servings: e.servings,
+      servingUnit: e.food.servingUnit,
+      caloriesSnapshot: e.caloriesSnapshot,
+    })),
+  }));
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex items-center justify-between pt-1">
-        <span className="w-8" aria-hidden />
-        <div className="flex items-center gap-3">
-          <span className="text-text-muted" aria-hidden>
-            ‹
-          </span>
-          <h1 className="text-lg font-semibold tracking-tight">{label}</h1>
-          <span className="text-text-muted" aria-hidden>
-            ›
-          </span>
-        </div>
-        <span className="w-8" aria-hidden />
-      </header>
+      <DayHeader
+        label={resolved.label}
+        prevKey={resolved.prevKey}
+        nextKey={resolved.nextKey}
+      />
 
-      <section className="rounded-2xl bg-surface p-4">
-        <div className="mb-3 text-xs font-semibold tracking-[0.12em] text-text-muted">
-          TODAY&apos;S TOTALS
-        </div>
-        <ul className="space-y-3 text-sm">
-          {[
-            ["Energy", "0 kcal"],
-            ["Protein", "0 g"],
-            ["Net Carbs", "0 g"],
-            ["Fat", "0 g"],
-            ["Sodium", "0 mg"],
-          ].map(([name, value]) => (
-            <li key={name} className="flex items-center justify-between">
-              <span className="text-text-muted">{name}</span>
-              <span className="font-medium tabular-nums">{value}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {add ? <AddFoodStubBanner meal={add} dateKey={pathKey} /> : null}
+
+      <DayTotalsCard totals={day.totals} />
 
       <section className="space-y-3">
-        {["Breakfast", "Lunch", "Dinner", "Snacks"].map((meal) => (
-          <div
-            key={meal}
-            className="flex items-center justify-between rounded-2xl bg-surface px-4 py-4"
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-full text-lg font-semibold text-accent-teal"
-                aria-hidden
-              >
-                +
-              </span>
-              <span className="font-medium">{meal}</span>
-            </div>
-            <span className="text-text-muted" aria-hidden>
-              ⌄
-            </span>
-          </div>
+        {mealCards.map((group) => (
+          <MealCard
+            key={group.meal}
+            meal={group.meal}
+            label={group.label}
+            dateKey={pathKey}
+            entries={group.entries}
+          />
         ))}
       </section>
     </div>

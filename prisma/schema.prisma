@@ -1,4 +1,3 @@
-// Domain models land in Phase 1 step 3. Scaffold only for now.
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -6,4 +5,102 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum FoodSource {
+  open_food_facts
+  custom
+  barcode
+  ocr
+}
+
+enum MealType {
+  breakfast
+  lunch
+  dinner
+  snack
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  email       String   @unique
+  displayName String   @map("display_name")
+  timezone    String   @default("America/Los_Angeles")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  foods    Food[]
+  entries  FoodEntry[]
+  favorites Favorite[]
+
+  @@map("users")
+}
+
+model Food {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String?    @map("user_id") @db.Uuid
+  source         FoodSource
+  externalId     String?    @map("external_id")
+  barcode        String?
+  name           String
+  brand          String?
+  servingQty     Float      @map("serving_qty")
+  servingUnit    String     @map("serving_unit")
+  calories       Float      @default(0)
+  proteinG       Float      @default(0) @map("protein_g")
+  carbsG         Float      @default(0) @map("carbs_g")
+  fatG           Float      @default(0) @map("fat_g")
+  fiberG         Float      @default(0) @map("fiber_g")
+  sugarG         Float      @default(0) @map("sugar_g")
+  sodiumMg       Float      @default(0) @map("sodium_mg")
+  nutrientsExtra Json       @default("{}") @map("nutrients_extra")
+  sourcePayload  Json?      @map("source_payload")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user      User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   FoodEntry[]
+  favorites Favorite[]
+
+  @@unique([source, externalId])
+  @@index([userId, source])
+  @@index([name])
+  @@map("foods")
+}
+
+model Favorite {
+  userId String @map("user_id") @db.Uuid
+  foodId String @map("food_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@id([userId, foodId])
+  @@map("favorites")
+}
+
+model FoodEntry {
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @map("user_id") @db.Uuid
+  foodId                 String   @map("food_id") @db.Uuid
+  loggedOn               DateTime @map("logged_on") @db.Date
+  meal                   MealType
+  servings               Float
+  foodNameSnapshot       String   @map("food_name_snapshot")
+  caloriesSnapshot       Float    @map("calories_snapshot")
+  proteinGSnapshot       Float    @map("protein_g_snapshot")
+  carbsGSnapshot         Float    @map("carbs_g_snapshot")
+  fatGSnapshot           Float    @map("fat_g_snapshot")
+  fiberGSnapshot         Float    @map("fiber_g_snapshot")
+  sugarGSnapshot         Float    @map("sugar_g_snapshot")
+  sodiumMgSnapshot       Float    @map("sodium_mg_snapshot")
+  nutrientsExtraSnapshot Json     @default("{}") @map("nutrients_extra_snapshot")
+  notes                  String?
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food Food @relation(fields: [foodId], references: [id], onDelete: Restrict)
+
+  @@index([userId, loggedOn])
+  @@index([userId, createdAt])
+  @@map("food_entries")
 }

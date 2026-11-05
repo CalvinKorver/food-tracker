@@ -1,6 +1,5 @@
 /**
  * Prisma client singleton.
- * Domain models and queries arrive in Phase 1 step 3+.
  * Requires DATABASE_URL pointing at Docker Postgres (see docker-compose.yml).
  */
 import { PrismaPg } from "@prisma/adapter-pg";
