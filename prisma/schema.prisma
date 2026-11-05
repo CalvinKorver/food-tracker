@@ -1,0 +1,9 @@
+// Domain models land in Phase 1 step 3. Scaffold only for now.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

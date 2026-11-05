@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: food-tracker-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: foodtracker
+      POSTGRES_PASSWORD: foodtracker
+      POSTGRES_DB: foodtracker
+    volumes:
+      - food_tracker_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodtracker -d foodtracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  food_tracker_pg:

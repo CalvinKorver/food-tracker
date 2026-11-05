@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Food Tracker
 
-## Getting Started
+Cronometer-inspired meal diary (mobile web + desktop). Phase 1 scaffold in progress.
 
-First, run the development server:
+## Prerequisites
+
+- Node.js 20+
+- npm
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
+
+## Start locally (one command)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+That will:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Create `.env` from `.env.example` if needed  
+2. Start Postgres with Docker Compose and wait until it’s healthy  
+3. Generate the Prisma client  
+4. Start the Next.js dev server  
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open the URL printed in the terminal (usually **http://localhost:3000**). It redirects to `/diary/today`.
 
-## Learn More
+If port 3000 is already used by another project, the app automatically picks the next free port and prints it.
 
-To learn more about Next.js, take a look at the following resources:
+### Day-to-day commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | When to use |
+|---------|-------------|
+| `npm run local` | Usual daily start (ensures DB + app) |
+| `npm run setup` | Prep DB/env/Prisma without starting Next |
+| `npm run dev` | Next only (Postgres already running) |
+| `npm run db:up` / `db:down` | Start/stop Postgres manually |
+| `npm run db:logs` | Tail Postgres logs |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Optional: `PORT=3005 npm run local` to force a specific port.
 
-## Deploy on Vercel
+## Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Next.js 15 (App Router) + TypeScript + Tailwind CSS v4
+- PostgreSQL via Docker Compose (`localhost:5432`)
+- Prisma 7 (`@prisma/adapter-pg`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Default DB credentials (local only): user/password/db = `foodtracker`.
+
+Schema models and seeding are not applied yet (later Phase 1 steps). The app UI runs without migrations for now.
+
+## Troubleshooting
+
+**“Docker is not running”** — open Docker Desktop, wait until it’s idle, then `npm run local` again.
+
+**Port 5432 already in use** — stop the other Postgres, or change the host port in `docker-compose.yml` and `.env`.
+
+**Wrong app on localhost:3000** — another project is bound to 3000; use the URL `npm run local` prints (it auto-selects a free port).
