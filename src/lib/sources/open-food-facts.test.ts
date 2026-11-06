@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FoodSource } from "@/generated/prisma/client";
 import {
+  fetchOffProductByBarcode,
   normalizeOffProduct,
   openFoodFactsAdapter,
 } from "@/lib/sources/open-food-facts";
@@ -44,6 +45,23 @@ describe("normalizeOffProduct", () => {
     expect(normalizeOffProduct(offIncomplete)).toBeNull();
   });
 
+  it("falls back to 100 g when serving is missing", () => {
+    const food = normalizeOffProduct({
+      code: "123",
+      product_name: "No Serving",
+      nutriments: {
+        "energy-kcal_100g": 200,
+        proteins_100g: 10,
+      },
+    });
+    expect(food).toMatchObject({
+      servingQty: 100,
+      servingUnit: "g",
+      calories: 200,
+      proteinG: 10,
+    });
+  });
+
   it("defaults missing nutrients to 0", () => {
     const food = normalizeOffProduct({
       code: "1",
@@ -64,10 +82,83 @@ describe("normalizeOffProduct", () => {
   });
 });
 
+describe("fetchOffProductByBarcode", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns normalized food when OFF status is 1", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 1, product: offProduct }),
+    });
+
+    const food = await fetchOffProductByBarcode("3017620422003", fetchMock);
+    expect(food?.name).toBe("Nutella");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://world.openfoodfacts.org/api/v2/product/3017620422003.json",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "User-Agent": expect.stringContaining("FoodTracker"),
+        }),
+      }),
+    );
+  });
+
+  it("returns null when product is not found", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 0, status_verbose: "product not found" }),
+    });
+
+    await expect(
+      fetchOffProductByBarcode("0000000000000", fetchMock),
+    ).resolves.toBeNull();
+  });
+
+  it("returns null on HTTP 404", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    });
+
+    await expect(
+      fetchOffProductByBarcode("0000000000000", fetchMock),
+    ).resolves.toBeNull();
+  });
+
+  it("returns null for incomplete products", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 1, product: offIncomplete }),
+    });
+
+    await expect(
+      fetchOffProductByBarcode("999", fetchMock),
+    ).resolves.toBeNull();
+  });
+});
+
 describe("openFoodFactsAdapter", () => {
   it("throws not-implemented for live search", async () => {
     await expect(openFoodFactsAdapter.search("eggs")).rejects.toThrow(
       /not implemented/i,
     );
+  });
+
+  it("delegates getByBarcode to OFF fetch", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 1, product: offProduct }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const food = await openFoodFactsAdapter.getByBarcode("3017620422003");
+    expect(food?.barcode).toBe("3017620422003");
   });
 });

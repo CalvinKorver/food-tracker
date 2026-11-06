@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createCustomFood } from "@/lib/custom-food";
 import {
   createFoodEntry,
+  listAllFoods,
   listFavoriteFoods,
   listRecentFoods,
   searchFoods,
   toggleFavorite,
+  upsertOffFood,
 } from "@/lib/foods";
-import { MealType } from "@/generated/prisma/client";
+import { FoodSource, MealType } from "@/generated/prisma/client";
 import { createTestUser, resetTestDb } from "../helpers/db";
+import type { NormalizedFood } from "@/lib/sources/types";
 
 describe("favorites / recents / search integration", () => {
   beforeEach(async () => {
@@ -149,5 +152,115 @@ describe("favorites / recents / search integration", () => {
 
     const all = await searchFoods(user.id, "all", "");
     expect(all).toHaveLength(2);
+  });
+
+  it("upsertOffFood inserts then updates the same barcode", async () => {
+    const user = await createTestUser();
+    const normalized: NormalizedFood = {
+      source: FoodSource.open_food_facts,
+      externalId: "3017620422003",
+      barcode: "3017620422003",
+      name: "Nutella",
+      brand: "Ferrero",
+      servingQty: 15,
+      servingUnit: "g",
+      calories: 80,
+      proteinG: 0.9,
+      carbsG: 8.6,
+      fatG: 4.7,
+      fiberG: 0,
+      sugarG: 8.4,
+      sodiumMg: 16,
+      nutrientsExtra: {},
+      sourcePayload: { code: "3017620422003" },
+    };
+
+    const first = await upsertOffFood(normalized, user.id);
+    expect(first.name).toBe("Nutella");
+    expect(first.source).toBe(FoodSource.open_food_facts);
+
+    const second = await upsertOffFood(
+      { ...normalized, name: "Nutella Updated", calories: 85 },
+      user.id,
+    );
+    expect(second.id).toBe(first.id);
+    expect(second.name).toBe("Nutella Updated");
+    expect(second.calories).toBe(85);
+  });
+
+  it("listAllFoods includes customs and logged OFF foods, not unscanned catalog", async () => {
+    const user = await createTestUser();
+    const custom = await createCustomFood(user.id, {
+      name: "Custom Oats",
+      brand: null,
+      servingQty: 40,
+      servingUnit: "g",
+      calories: 150,
+      proteinG: 5,
+      carbsG: 27,
+      fatG: 3,
+      fiberG: 4,
+      sugarG: 1,
+      sodiumMg: 0,
+    });
+
+    const loggedOff = await upsertOffFood(
+      {
+        source: FoodSource.open_food_facts,
+        externalId: "111",
+        barcode: "111",
+        name: "Scanned Milk",
+        brand: "Kirkland",
+        servingQty: 240,
+        servingUnit: "ml",
+        calories: 160,
+        proteinG: 8,
+        carbsG: 11,
+        fatG: 9,
+        fiberG: 0,
+        sugarG: 11,
+        sodiumMg: 120,
+        nutrientsExtra: {},
+        sourcePayload: {},
+      },
+      user.id,
+    );
+
+    const neverLogged = await upsertOffFood(
+      {
+        source: FoodSource.open_food_facts,
+        externalId: "222",
+        barcode: "222",
+        name: "Never Logged Chips",
+        brand: null,
+        servingQty: 28,
+        servingUnit: "g",
+        calories: 150,
+        proteinG: 2,
+        carbsG: 15,
+        fatG: 9,
+        fiberG: 1,
+        sugarG: 1,
+        sodiumMg: 170,
+        nutrientsExtra: {},
+        sourcePayload: {},
+      },
+      user.id,
+    );
+
+    await createFoodEntry({
+      userId: user.id,
+      foodId: loggedOff.id,
+      loggedOn: new Date("2026-11-06"),
+      meal: MealType.snack,
+      quantity: 1,
+      unitMode: "serving",
+    });
+
+    const all = await listAllFoods(user.id);
+    const ids = all.map((f) => f.id);
+    expect(ids).toContain(custom.id);
+    expect(ids).toContain(loggedOff.id);
+    expect(ids).not.toContain(neverLogged.id);
   });
 });

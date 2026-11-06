@@ -4,8 +4,14 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import { dateFromKey } from "@/lib/dates";
 import { deleteFoodEntry } from "@/lib/diary";
-import { createFoodEntry, toggleFavorite } from "@/lib/foods";
+import {
+  createFoodEntry,
+  toggleFavorite,
+  upsertOffFood,
+  type FoodListItem,
+} from "@/lib/foods";
 import { isMealType } from "@/lib/food-shared";
+import { openFoodFactsAdapter } from "@/lib/sources/open-food-facts";
 import type { MealType } from "@/generated/prisma/client";
 
 function revalidateDiary(dateKey: string) {
@@ -72,5 +78,35 @@ export async function toggleFavoriteAction(foodId: string) {
     return { ok: true as const, ...result };
   } catch {
     return { ok: false as const, error: "Could not update favorite" };
+  }
+}
+
+const BARCODE_RE = /^\d{8,14}$/;
+
+export async function lookupBarcodeAction(
+  code: string,
+): Promise<
+  | { ok: true; food: FoodListItem }
+  | { ok: false; error: string }
+> {
+  const trimmed = code.trim();
+  if (!BARCODE_RE.test(trimmed)) {
+    return { ok: false as const, error: "Invalid barcode" };
+  }
+
+  const user = await getCurrentUser();
+
+  try {
+    const normalized = await openFoodFactsAdapter.getByBarcode(trimmed);
+    if (!normalized) {
+      return { ok: false as const, error: "Product not found" };
+    }
+
+    const food = await upsertOffFood(normalized, user.id);
+    return { ok: true as const, food };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to look up barcode";
+    return { ok: false as const, error: message };
   }
 }

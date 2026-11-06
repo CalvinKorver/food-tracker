@@ -23,6 +23,7 @@ type AddFoodSheetProps = {
   initialRecents: FoodListItem[];
   initialFavorites: FoodListItem[];
   initialAll: FoodListItem[];
+  initialSelected?: FoodListItem | null;
 };
 
 const TABS: { id: AddFoodTab; label: string }[] = [
@@ -38,11 +39,15 @@ export function AddFoodSheet({
   initialRecents,
   initialFavorites,
   initialAll,
+  initialSelected = null,
 }: AddFoodSheetProps) {
   const router = useRouter();
   const [tab, setTab] = useState<AddFoodTab>("recents");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<FoodListItem | null>(null);
+  const [selected, setSelected] = useState<FoodListItem | null>(
+    initialSelected,
+  );
+  const [openedFromBarcode] = useState(Boolean(initialSelected));
   const [recents, setRecents] = useState(initialRecents);
   const [favorites, setFavorites] = useState(initialFavorites);
   const [allFoods, setAllFoods] = useState(initialAll);
@@ -114,7 +119,13 @@ export function AddFoodSheet({
           <ServingsStep
             food={selected}
             meal={meal}
-            onBack={() => setSelected(null)}
+            onBack={() => {
+              if (openedFromBarcode) {
+                close();
+                return;
+              }
+              setSelected(null);
+            }}
             onConfirm={async ({ quantity, unitMode }) => {
               const result = await addFoodEntryAction({
                 foodId: selected.id,

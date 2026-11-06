@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { FoodSource, type MealType } from "@/generated/prisma/client";
+import { FoodSource, type MealType, Prisma } from "@/generated/prisma/client";
 import {
   type AddFoodTab,
   type FoodListItem,
@@ -9,6 +9,7 @@ import {
   quantityUnitFromMode,
   type QuantityUnitMode,
 } from "@/lib/quantity";
+import type { NormalizedFood } from "@/lib/sources/types";
 
 export type { AddFoodTab, FoodListItem } from "@/lib/food-shared";
 export {
@@ -75,6 +76,116 @@ export async function listAllCustomFoods(
   return withFavoriteFlag(foods, favorites);
 }
 
+/**
+ * All usable foods for add-food: user's customs plus any food they have logged
+ * (any source, including Open Food Facts from barcode scans).
+ */
+export async function listAllFoods(userId: string): Promise<FoodListItem[]> {
+  const favorites = await favoriteIdsFor(userId);
+  const [customs, logged] = await Promise.all([
+    prisma.food.findMany({
+      where: { userId, source: FoodSource.custom },
+      select: FOOD_SELECT,
+    }),
+    prisma.foodEntry.findMany({
+      where: { userId },
+      distinct: ["foodId"],
+      select: { food: { select: FOOD_SELECT } },
+    }),
+  ]);
+
+  const byId = new Map<string, Omit<FoodListItem, "isFavorite">>();
+  for (const food of customs) {
+    byId.set(food.id, food);
+  }
+  for (const entry of logged) {
+    byId.set(entry.food.id, entry.food);
+  }
+
+  const foods = [...byId.values()].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  return withFavoriteFlag(foods, favorites);
+}
+
+export async function getFoodListItem(
+  userId: string,
+  foodId: string,
+): Promise<FoodListItem | null> {
+  const food = await prisma.food.findFirst({
+    where: {
+      id: foodId,
+      OR: [{ userId }, { userId: null }],
+    },
+    select: FOOD_SELECT,
+  });
+  if (!food) return null;
+
+  const favorites = await favoriteIdsFor(userId);
+  return { ...food, isFavorite: favorites.has(food.id) };
+}
+
+export async function upsertOffFood(
+  normalized: NormalizedFood,
+  userId?: string,
+): Promise<FoodListItem> {
+  if (!normalized.externalId) {
+    throw new Error("Open Food Facts food is missing a barcode");
+  }
+
+  const data = {
+    userId: null as string | null,
+    source: FoodSource.open_food_facts,
+    externalId: normalized.externalId,
+    barcode: normalized.barcode,
+    name: normalized.name,
+    brand: normalized.brand,
+    servingQty: normalized.servingQty,
+    servingUnit: normalized.servingUnit,
+    calories: normalized.calories,
+    proteinG: normalized.proteinG,
+    carbsG: normalized.carbsG,
+    fatG: normalized.fatG,
+    fiberG: normalized.fiberG,
+    sugarG: normalized.sugarG,
+    sodiumMg: normalized.sodiumMg,
+    nutrientsExtra: normalized.nutrientsExtra as Prisma.InputJsonValue,
+    sourcePayload: normalized.sourcePayload as Prisma.InputJsonValue,
+  };
+
+  const food = await prisma.food.upsert({
+    where: {
+      source_externalId: {
+        source: FoodSource.open_food_facts,
+        externalId: normalized.externalId,
+      },
+    },
+    create: data,
+    update: {
+      barcode: data.barcode,
+      name: data.name,
+      brand: data.brand,
+      servingQty: data.servingQty,
+      servingUnit: data.servingUnit,
+      calories: data.calories,
+      proteinG: data.proteinG,
+      carbsG: data.carbsG,
+      fatG: data.fatG,
+      fiberG: data.fiberG,
+      sugarG: data.sugarG,
+      sodiumMg: data.sodiumMg,
+      nutrientsExtra: data.nutrientsExtra,
+      sourcePayload: data.sourcePayload,
+    },
+    select: FOOD_SELECT,
+  });
+
+  const favorites = userId
+    ? await favoriteIdsFor(userId)
+    : new Set<string>();
+  return { ...food, isFavorite: favorites.has(food.id) };
+}
+
 export async function listRecentFoods(
   userId: string,
   limit = 25,
@@ -120,7 +231,7 @@ export async function searchFoods(
       ? await listRecentFoods(userId)
       : tab === "favorites"
         ? await listFavoriteFoods(userId)
-        : await listAllCustomFoods(userId);
+        : await listAllFoods(userId);
 
   return list.filter((f) => matchesQuery(f, query));
 }

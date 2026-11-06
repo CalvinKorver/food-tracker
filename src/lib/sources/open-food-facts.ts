@@ -12,6 +12,8 @@ export type OffProduct = {
   nutriments?: OffNutriments;
 };
 
+const OFF_USER_AGENT = "FoodTracker/0.1 (https://github.com/calvinkorver/food-tracker)";
+
 function num(raw: unknown): number | null {
   if (raw === undefined || raw === null || raw === "") return null;
   const n = typeof raw === "number" ? raw : Number(raw);
@@ -69,13 +71,13 @@ function parseServing(raw: OffProduct): { qty: number; unit: string } | null {
 /**
  * Map an OFF-shaped product JSON → NormalizedFood.
  * Prefer *_serving nutriments; else scale *_100g by serving_quantity/100.
+ * When serving is missing, fall back to 100 g so common products still ingest.
  */
 export function normalizeOffProduct(raw: OffProduct): NormalizedFood | null {
   const name = String(raw.product_name ?? "").trim();
   if (!name) return null;
 
-  const serving = parseServing(raw);
-  if (!serving) return null;
+  const serving = parseServing(raw) ?? { qty: 100, unit: "g" };
 
   const scale = serving.qty / 100;
   const nutriments = raw.nutriments;
@@ -116,12 +118,47 @@ export function normalizeOffProduct(raw: OffProduct): NormalizedFood | null {
   };
 }
 
+type OffProductResponse = {
+  status?: number;
+  product?: OffProduct;
+};
+
+export async function fetchOffProductByBarcode(
+  code: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<NormalizedFood | null> {
+  const trimmed = code.trim();
+  if (!trimmed) return null;
+
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(trimmed)}.json`;
+  const res = await fetchImpl(url, {
+    headers: {
+      "User-Agent": OFF_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Open Food Facts request failed (${res.status})`);
+  }
+
+  const data = (await res.json()) as OffProductResponse;
+  if (data.status !== 1 || !data.product) return null;
+
+  const product = {
+    ...data.product,
+    code: data.product.code ?? trimmed,
+  };
+  return normalizeOffProduct(product);
+}
+
 export const openFoodFactsAdapter: FoodSourceAdapter = {
   async search() {
     throw new Error("Open Food Facts search is not implemented (Phase 2)");
   },
-  async getByBarcode() {
-    throw new Error("Open Food Facts barcode lookup is not implemented (Phase 2)");
+  async getByBarcode(code: string) {
+    return fetchOffProductByBarcode(code);
   },
   async ingestLabel() {
     throw new Error("Label ingest is not implemented");

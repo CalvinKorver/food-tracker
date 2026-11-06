@@ -8,14 +8,15 @@ import { resolveDiaryDate } from "@/lib/dates";
 import { getDiaryDay } from "@/lib/diary";
 import { isMealType } from "@/lib/food-shared";
 import {
-  listAllCustomFoods,
+  getFoodListItem,
+  listAllFoods,
   listFavoriteFoods,
   listRecentFoods,
 } from "@/lib/foods";
 
 type DiaryPageProps = {
   params: Promise<{ date: string }>;
-  searchParams: Promise<{ add?: string }>;
+  searchParams: Promise<{ add?: string; foodId?: string }>;
 };
 
 export default async function DiaryPage({
@@ -23,7 +24,7 @@ export default async function DiaryPage({
   searchParams,
 }: DiaryPageProps) {
   const { date: dateParam } = await params;
-  const { add } = await searchParams;
+  const { add, foodId } = await searchParams;
   const user = await getCurrentUser();
   const resolved = resolveDiaryDate(dateParam, user.timezone);
 
@@ -38,11 +39,14 @@ export default async function DiaryPage({
 
   const addMeal = add && isMealType(add) ? add : add ? "snack" : null;
 
-  const [day, recents, favorites, allFoods] = await Promise.all([
+  const [day, recents, favorites, allFoods, initialSelected] = await Promise.all([
     getDiaryDay(user.id, resolved.date),
     addMeal ? listRecentFoods(user.id) : Promise.resolve([]),
     addMeal ? listFavoriteFoods(user.id) : Promise.resolve([]),
-    addMeal ? listAllCustomFoods(user.id) : Promise.resolve([]),
+    addMeal ? listAllFoods(user.id) : Promise.resolve([]),
+    addMeal && foodId
+      ? getFoodListItem(user.id, foodId)
+      : Promise.resolve(null),
   ]);
 
   const mealCards = day.meals.map((group) => ({
@@ -87,6 +91,7 @@ export default async function DiaryPage({
           initialRecents={recents}
           initialFavorites={favorites}
           initialAll={allFoods}
+          initialSelected={initialSelected}
         />
       ) : null}
     </div>
