@@ -23,11 +23,15 @@ export type NutritionLabelOcrFields = {
 const SYSTEM_PROMPT = `You extract nutrition facts from a photo of a food menu card or nutrition label.
 Return ONLY a JSON object with these keys (use null when unknown):
 name, brand, servingQty, servingUnit, calories, proteinG, carbsG, fatG, fiberG, sugarG, sodiumMg, satFatG, transFatG, cholesterolMg.
-- servingQty is a number (e.g. 8 from "8.0 oz")
-- servingUnit is the unit string without the number (e.g. "oz")
-- Nutrient amounts are numbers for the stated serving (grams or mg as labeled)
-- calories is kcal for the serving
-- Prefer the dish/product title as name; brand may be null for workplace menus`;
+
+Layout (critical):
+- Workplace/cafeteria cards often use a 4-column table per row: attribute, value, attribute, value
+  (e.g. "Calories 200 | Sodium 760mg", then "Total Fat 2.5g | Total Carbohydrate 23g", then "… | Protein 20g").
+- Read BOTH pairs on every row. Never skip the right-hand attribute/value. Never attach a right-column value to a left-column nutrient.
+- Synonyms → keys: Total Fat→fatG, Saturated Fat→satFatG, Trans Fat→transFatG, Cholesterol→cholesterolMg, Sodium→sodiumMg, Total Carbohydrate→carbsG, Dietary Fiber→fiberG, Sugars→sugarG, Protein→proteinG, Calories→calories.
+- Strip units; store bare numbers (g→proteinG/carbsG/fatG/fiberG/sugarG/satFatG/transFatG; mg→sodiumMg/cholesterolMg). Use 0 when the label shows 0; null only if absent.
+- Serving Size like "8.0 oz." → servingQty 8, servingUnit "oz". Do not invent "1" / "serving" when an amount+unit is printed.
+- name = dish/product title; brand may be null for workplace menus.`;
 
 function numOrNull(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === "") return null;
@@ -132,11 +136,11 @@ export async function extractNutritionLabelFromImage(input: {
           content: [
             {
               type: "text",
-              text: "Extract nutrition facts from this image into the JSON schema described.",
+              text: "Extract nutrition facts from this image. If the nutrition block is a 4-column attribute/value/attribute/value table, read every left and right pair.",
             },
             {
               type: "image_url",
-              image_url: { url: dataUrl, detail: "low" },
+              image_url: { url: dataUrl, detail: "high" },
             },
           ],
         },
@@ -163,5 +167,13 @@ export async function extractNutritionLabelFromImage(input: {
     throw new Error("OpenAI returned invalid JSON");
   }
 
-  return parseNutritionLabelJson(parsed);
+  const fields = parseNutritionLabelJson(parsed);
+  // shortcut: noisy in prod — drop once OCR pairing is solid
+  console.info("[ocr] imageBytes≈", Math.round((input.imageBase64.length * 3) / 4), {
+    mimeType: input.mimeType,
+  });
+  console.info("[ocr] raw model JSON:", content);
+  console.info("[ocr] parsed fields:", fields);
+
+  return fields;
 }

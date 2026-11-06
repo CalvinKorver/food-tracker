@@ -72,15 +72,17 @@ function AddOptionTile({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-2.5 rounded-xl p-1 transition active:scale-[0.97]"
+      className="flex min-w-0 flex-1 flex-col items-center gap-2.5 rounded-xl p-1 transition active:scale-[0.97]"
     >
       <span
-        className="flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-2xl"
+        className="flex h-[4.25rem] w-[4.25rem] max-w-full items-center justify-center rounded-2xl"
         style={{ color, background }}
       >
         {icon}
       </span>
-      <span className="text-center text-xs font-medium text-text">{label}</span>
+      <span className="text-center text-xs font-medium leading-tight text-text">
+        {label}
+      </span>
     </button>
   );
 }
@@ -155,7 +157,7 @@ export function AddOptionsSheet({
             Add to Diary
           </h2>
 
-          <div className="mt-5 grid grid-cols-3 gap-3 pb-2">
+          <div className="mt-5 flex flex-row gap-2 pb-2">
             <AddOptionTile
               label="Search Food"
               icon={<SearchIcon />}
