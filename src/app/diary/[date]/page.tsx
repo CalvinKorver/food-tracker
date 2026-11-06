@@ -58,7 +58,7 @@ export default async function DiaryPage({
   }));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <DayHeader
         label={resolved.label}
         prevKey={resolved.prevKey}
@@ -67,7 +67,7 @@ export default async function DiaryPage({
 
       <DayTotalsCard totals={day.totals} />
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         {mealCards.map((group) => (
           <MealCard
             key={group.meal}

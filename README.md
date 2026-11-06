@@ -59,6 +59,16 @@ npm run db:seed      # default user + sample custom foods
 | `npm run db:seed` | Seed default user + sample foods |
 | `npm run db:reset` | Reset DB, re-apply migrations, seed |
 
+## Testing
+
+| Command | What |
+|---------|------|
+| `npm test` | Unit tests (no DB) |
+| `npm run test:db:prepare` | Create `foodtracker_test` + migrate (needs Docker) |
+| `npm run test:integration` | Integration tests against `DATABASE_URL_TEST` |
+
+Add `DATABASE_URL_TEST` to `.env` (see `.env.example`). Integration tests truncate the test DB only — never point `DATABASE_URL_TEST` at your main `foodtracker` database.
+
 ## Troubleshooting
 
 **“Docker is not running”** — open Docker Desktop, wait until it’s idle, then `npm run local` again.

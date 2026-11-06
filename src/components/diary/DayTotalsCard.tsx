@@ -14,11 +14,11 @@ export function DayTotalsCard({ totals }: DayTotalsCardProps) {
   ];
 
   return (
-    <section className="rounded-2xl bg-surface p-4">
-      <div className="mb-3 text-base font-bold tracking-tight text-text">
+    <section className="rounded-2xl bg-surface px-4 py-3">
+      <div className="mb-1.5 text-base font-bold tracking-tight text-text">
         Totals
       </div>
-      <ul className="space-y-3 text-sm">
+      <ul className="space-y-1 text-sm leading-snug">
         {rows.map(([name, value]) => (
           <li key={name} className="flex items-center justify-between">
             <span className="text-text-muted">{name}</span>

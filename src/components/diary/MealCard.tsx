@@ -17,21 +17,14 @@ export function MealCard({ meal, label, dateKey, entries }: MealCardProps) {
 
   return (
     <div className="overflow-hidden rounded-2xl bg-surface">
-      <div className="flex items-center gap-1 px-2 py-2">
+      <div className="flex items-center gap-1 px-2 py-1">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center rounded-xl px-3 py-2 text-left transition hover:bg-surface-hover"
+          className="flex min-w-0 flex-1 items-center rounded-xl px-3 py-1.5 text-left transition hover:bg-surface-hover"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
-          <span className="font-medium">
-            {label}
-            {entries.length > 0 ? (
-              <span className="ml-2 text-sm font-normal text-text-muted">
-                ({entries.length})
-              </span>
-            ) : null}
-          </span>
+          <span className="font-medium">{label}</span>
         </button>
         <Link
           href={`/diary/${dateKey}?add=${meal}`}
@@ -45,7 +38,7 @@ export function MealCard({ meal, label, dateKey, entries }: MealCardProps) {
 
       {open ? (
         entries.length === 0 ? (
-          <p className="border-t border-border px-4 py-3 text-sm text-text-muted">
+          <p className="border-t border-border px-4 py-2 text-sm text-text-muted">
             No foods logged
           </p>
         ) : (
