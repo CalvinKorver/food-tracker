@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FoodResultRow } from "@/components/foods/FoodResultRow";
 import { ServingsStep } from "@/components/foods/ServingsStep";
@@ -207,6 +208,17 @@ export function AddFoodSheet({
                   />
                 ))
               )}
+
+              {tab === "all" ? (
+                <div className="border-t border-border p-4">
+                  <Link
+                    href={`/foods/new?returnTo=${encodeURIComponent(`/diary/${dateKey}?add=${meal}`)}`}
+                    className="flex w-full items-center justify-center rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-accent transition hover:bg-surface"
+                  >
+                    + Create custom food
+                  </Link>
+                </div>
+              ) : null}
             </div>
           </>
         )}

@@ -1,0 +1,51 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { CustomFoodForm } from "@/components/foods/CustomFoodForm";
+import { getCurrentUser } from "@/lib/current-user";
+import { getCustomFood } from "@/lib/custom-food";
+
+type EditFoodPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function EditFoodPage({ params }: EditFoodPageProps) {
+  const { id } = await params;
+  const user = await getCurrentUser();
+  const food = await getCustomFood(user.id, id);
+  if (!food) notFound();
+
+  return (
+    <div className="flex flex-col gap-4 pt-1">
+      <header className="flex items-center gap-3">
+        <Link
+          href="/foods"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-text-muted hover:bg-surface"
+          aria-label="Back"
+        >
+          ←
+        </Link>
+        <h1 className="truncate text-lg font-semibold tracking-tight">
+          Edit food
+        </h1>
+      </header>
+
+      <CustomFoodForm
+        mode="edit"
+        initial={{
+          id: food.id,
+          name: food.name,
+          brand: food.brand ?? "",
+          servingQty: String(food.servingQty),
+          servingUnit: food.servingUnit,
+          calories: String(food.calories),
+          proteinG: String(food.proteinG),
+          carbsG: String(food.carbsG),
+          fatG: String(food.fatG),
+          fiberG: String(food.fiberG),
+          sugarG: String(food.sugarG),
+          sodiumMg: String(food.sodiumMg),
+        }}
+      />
+    </div>
+  );
+}
