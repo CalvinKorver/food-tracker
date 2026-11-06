@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CustomFoodForm } from "@/components/foods/CustomFoodForm";
 import { getCurrentUser } from "@/lib/current-user";
 import { getCustomFood } from "@/lib/custom-food";
+import { foodRecordToFormValues } from "@/lib/custom-food-form";
 
 type EditFoodPageProps = {
   params: Promise<{ id: string }>;
@@ -29,23 +30,7 @@ export default async function EditFoodPage({ params }: EditFoodPageProps) {
         </h1>
       </header>
 
-      <CustomFoodForm
-        mode="edit"
-        initial={{
-          id: food.id,
-          name: food.name,
-          brand: food.brand ?? "",
-          servingQty: String(food.servingQty),
-          servingUnit: food.servingUnit,
-          calories: String(food.calories),
-          proteinG: String(food.proteinG),
-          carbsG: String(food.carbsG),
-          fatG: String(food.fatG),
-          fiberG: String(food.fiberG),
-          sugarG: String(food.sugarG),
-          sodiumMg: String(food.sodiumMg),
-        }}
-      />
+      <CustomFoodForm mode="edit" initial={foodRecordToFormValues(food)} />
     </div>
   );
 }

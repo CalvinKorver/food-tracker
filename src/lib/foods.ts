@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { FoodSource, type MealType, Prisma } from "@/generated/prisma/client";
 import {
+  USER_FOOD_SOURCES,
   type AddFoodTab,
   type FoodListItem,
 } from "@/lib/food-shared";
@@ -69,7 +70,10 @@ export async function listAllCustomFoods(
 ): Promise<FoodListItem[]> {
   const favorites = await favoriteIdsFor(userId);
   const foods = await prisma.food.findMany({
-    where: { userId, source: FoodSource.custom },
+    where: {
+      userId,
+      source: { in: [...USER_FOOD_SOURCES] },
+    },
     select: FOOD_SELECT,
     orderBy: { name: "asc" },
   });
@@ -84,7 +88,10 @@ export async function listAllFoods(userId: string): Promise<FoodListItem[]> {
   const favorites = await favoriteIdsFor(userId);
   const [customs, logged] = await Promise.all([
     prisma.food.findMany({
-      where: { userId, source: FoodSource.custom },
+      where: {
+        userId,
+        source: { in: [...USER_FOOD_SOURCES] },
+      },
       select: FOOD_SELECT,
     }),
     prisma.foodEntry.findMany({

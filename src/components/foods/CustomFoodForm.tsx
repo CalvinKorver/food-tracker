@@ -7,26 +7,13 @@ import {
   deleteCustomFoodAction,
   updateCustomFoodAction,
 } from "@/app/foods/actions";
-
-export type CustomFoodFormValues = {
-  id?: string;
-  name: string;
-  brand: string;
-  servingQty: string;
-  servingUnit: string;
-  calories: string;
-  proteinG: string;
-  carbsG: string;
-  fatG: string;
-  fiberG: string;
-  sugarG: string;
-  sodiumMg: string;
-};
+import type { CustomFoodFormValues } from "@/lib/custom-food-form";
 
 type CustomFoodFormProps = {
   mode: "create" | "edit";
   initial: CustomFoodFormValues;
   returnTo?: string;
+  source?: "custom" | "ocr";
 };
 
 function Field({
@@ -68,7 +55,12 @@ function Field({
   );
 }
 
-export function CustomFoodForm({ mode, initial, returnTo }: CustomFoodFormProps) {
+export function CustomFoodForm({
+  mode,
+  initial,
+  returnTo,
+  source = "custom",
+}: CustomFoodFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -94,6 +86,9 @@ export function CustomFoodForm({ mode, initial, returnTo }: CustomFoodFormProps)
         <input type="hidden" name="foodId" value={initial.id} />
       ) : null}
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+      {mode === "create" ? (
+        <input type="hidden" name="source" value={source} />
+      ) : null}
 
       <Field label="Name" name="name" required defaultValue={initial.name} />
       <Field
@@ -180,6 +175,30 @@ export function CustomFoodForm({ mode, initial, returnTo }: CustomFoodFormProps)
           step="any"
           min="0"
           defaultValue={initial.sodiumMg}
+        />
+        <Field
+          label="Sat fat (g)"
+          name="satFatG"
+          type="number"
+          step="any"
+          min="0"
+          defaultValue={initial.satFatG}
+        />
+        <Field
+          label="Trans fat (g)"
+          name="transFatG"
+          type="number"
+          step="any"
+          min="0"
+          defaultValue={initial.transFatG}
+        />
+        <Field
+          label="Cholesterol (mg)"
+          name="cholesterolMg"
+          type="number"
+          step="any"
+          min="0"
+          defaultValue={initial.cholesterolMg}
         />
       </div>
 

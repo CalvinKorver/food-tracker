@@ -1,27 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type AddOptionsSheetProps = {
   open: boolean;
   onClose: () => void;
   onSearchFood: () => void;
   onScanBarcode: () => void;
+  onScanLabel: () => void;
+};
+
+const iconSvgProps = {
+  width: 28,
+  height: 28,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true as const,
 };
 
 function SearchIcon() {
   return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
+    <svg {...iconSvgProps}>
       <circle cx="11" cy="11" r="7" />
       <path d="M20 20l-3.5-3.5" />
     </svg>
@@ -30,17 +33,7 @@ function SearchIcon() {
 
 function BarcodeIcon() {
   return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
+    <svg {...iconSvgProps}>
       <path d="M4 7V5a1 1 0 0 1 1-1h2" />
       <path d="M17 4h2a1 1 0 0 1 1 1v2" />
       <path d="M20 17v2a1 1 0 0 1-1 1h-2" />
@@ -53,11 +46,51 @@ function BarcodeIcon() {
   );
 }
 
+function CameraIcon() {
+  return (
+    <svg {...iconSvgProps}>
+      <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
+function AddOptionTile({
+  label,
+  icon,
+  color,
+  background,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  color: string;
+  background: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center gap-2.5 rounded-xl p-1 transition active:scale-[0.97]"
+    >
+      <span
+        className="flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-2xl"
+        style={{ color, background }}
+      >
+        {icon}
+      </span>
+      <span className="text-center text-xs font-medium text-text">{label}</span>
+    </button>
+  );
+}
+
 export function AddOptionsSheet({
   open,
   onClose,
   onSearchFood,
   onScanBarcode,
+  onScanLabel,
 }: AddOptionsSheetProps) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(open);
@@ -89,6 +122,11 @@ export function AddOptionsSheet({
 
   if (!mounted) return null;
 
+  function pick(action: () => void) {
+    action();
+    onClose();
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center" role="presentation">
       <button
@@ -117,41 +155,28 @@ export function AddOptionsSheet({
             Add to Diary
           </h2>
 
-          <div className="mt-5 grid grid-cols-2 gap-4 pb-2">
-            <button
-              type="button"
-              onClick={() => {
-                onSearchFood();
-                onClose();
-              }}
-              className="flex flex-col items-center gap-2.5 rounded-xl p-1 transition active:scale-[0.97]"
-            >
-              <span
-                className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl text-[#c47a12]"
-                style={{ background: "rgba(245, 166, 35, 0.18)" }}
-              >
-                <SearchIcon />
-              </span>
-              <span className="text-sm font-medium text-text">Search Food</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                onScanBarcode();
-                onClose();
-              }}
-              className="flex flex-col items-center gap-2.5 rounded-xl p-1 transition active:scale-[0.97]"
-              aria-label="Scan barcode"
-            >
-              <span
-                className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl text-[#2a9d8f]"
-                style={{ background: "rgba(46, 196, 182, 0.18)" }}
-              >
-                <BarcodeIcon />
-              </span>
-              <span className="text-sm font-medium text-text">Scan Barcode</span>
-            </button>
+          <div className="mt-5 grid grid-cols-3 gap-3 pb-2">
+            <AddOptionTile
+              label="Search Food"
+              icon={<SearchIcon />}
+              color="#c47a12"
+              background="rgba(245, 166, 35, 0.18)"
+              onClick={() => pick(onSearchFood)}
+            />
+            <AddOptionTile
+              label="Scan Barcode"
+              icon={<BarcodeIcon />}
+              color="#2a9d8f"
+              background="rgba(46, 196, 182, 0.18)"
+              onClick={() => pick(onScanBarcode)}
+            />
+            <AddOptionTile
+              label="Scan Label"
+              icon={<CameraIcon />}
+              color="#4a90d9"
+              background="rgba(74, 144, 217, 0.18)"
+              onClick={() => pick(onScanLabel)}
+            />
           </div>
         </div>
       </div>

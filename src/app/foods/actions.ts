@@ -7,9 +7,19 @@ import {
   createCustomFood,
   deleteCustomFood,
   parseCustomFoodInput,
+  resolveUserFoodSource,
   updateCustomFood,
 } from "@/lib/custom-food";
+import {
+  safeReturnTo,
+  withFoodIdOnReturnTo,
+  type OcrFoodPrefill,
+} from "@/lib/custom-food-form";
 import { toggleFavorite } from "@/lib/foods";
+import {
+  extractNutritionLabelFromImage,
+  nutritionLabelToFormValues,
+} from "@/lib/sources/nutrition-label-ocr";
 
 function revalidateFoods() {
   revalidatePath("/foods");
@@ -29,15 +39,10 @@ function formRecord(formData: FormData): Record<string, unknown> {
     fiberG: formData.get("fiberG"),
     sugarG: formData.get("sugarG"),
     sodiumMg: formData.get("sodiumMg"),
+    satFatG: formData.get("satFatG"),
+    transFatG: formData.get("transFatG"),
+    cholesterolMg: formData.get("cholesterolMg"),
   };
-}
-
-function safeReturnTo(raw: FormDataEntryValue | null): string {
-  const value = typeof raw === "string" ? raw : "";
-  if (value.startsWith("/diary/") || value.startsWith("/foods")) {
-    return value;
-  }
-  return "/foods";
 }
 
 export async function createCustomFoodAction(formData: FormData) {
@@ -47,10 +52,19 @@ export async function createCustomFoodAction(formData: FormData) {
   }
 
   const user = await getCurrentUser();
-  await createCustomFood(user.id, parsed.data);
+  const source = resolveUserFoodSource(formData.get("source"));
+  const food = await createCustomFood(user.id, parsed.data, { source });
   revalidateFoods();
 
-  redirect(safeReturnTo(formData.get("returnTo")));
+  const returnTo = withFoodIdOnReturnTo(
+    safeReturnTo(
+      typeof formData.get("returnTo") === "string"
+        ? (formData.get("returnTo") as string)
+        : null,
+    ),
+    food.id,
+  );
+  redirect(returnTo);
 }
 
 export async function updateCustomFoodAction(formData: FormData) {
@@ -93,5 +107,57 @@ export async function toggleFoodFavoriteAction(foodId: string) {
     return { ok: true as const, ...result };
   } catch {
     return { ok: false as const, error: "Could not update favorite" };
+  }
+}
+
+const MAX_IMAGE_CHARS = Math.ceil(1.5 * 1024 * 1024 * (4 / 3));
+
+export async function parseNutritionLabelAction(input: {
+  imageBase64: string;
+  mimeType: string;
+}): Promise<
+  | { ok: true; values: OcrFoodPrefill }
+  | { ok: false; error: string }
+> {
+  await getCurrentUser();
+
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    return {
+      ok: false as const,
+      error: "OPENAI_API_KEY is not configured",
+    };
+  }
+
+  const imageBase64 = input.imageBase64;
+  if (!imageBase64 || imageBase64.length > MAX_IMAGE_CHARS) {
+    return { ok: false as const, error: "Image is missing or too large" };
+  }
+
+  const mimeType =
+    input.mimeType === "image/png" || input.mimeType === "image/webp"
+      ? input.mimeType
+      : "image/jpeg";
+
+  try {
+    const fields = await extractNutritionLabelFromImage({
+      imageBase64,
+      mimeType,
+      apiKey,
+    });
+    if (!fields.name) {
+      return {
+        ok: false as const,
+        error: "Could not read a food name from the label. Try again.",
+      };
+    }
+    return {
+      ok: true as const,
+      values: nutritionLabelToFormValues(fields),
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to read nutrition label";
+    return { ok: false as const, error: message };
   }
 }

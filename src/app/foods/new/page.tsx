@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CustomFoodForm } from "@/components/foods/CustomFoodForm";
+import { NewCustomFoodClient } from "@/components/foods/NewCustomFoodClient";
+import { safeReturnTo } from "@/lib/custom-food-form";
 
 type NewFoodPageProps = {
   searchParams: Promise<{ returnTo?: string }>;
@@ -7,11 +8,7 @@ type NewFoodPageProps = {
 
 export default async function NewFoodPage({ searchParams }: NewFoodPageProps) {
   const { returnTo } = await searchParams;
-  const safeReturn =
-    returnTo &&
-    (returnTo.startsWith("/diary/") || returnTo.startsWith("/foods"))
-      ? returnTo
-      : "/foods";
+  const safeReturn = safeReturnTo(returnTo);
 
   return (
     <div className="flex flex-col gap-4 pt-1">
@@ -26,23 +23,7 @@ export default async function NewFoodPage({ searchParams }: NewFoodPageProps) {
         <h1 className="text-lg font-semibold tracking-tight">New custom food</h1>
       </header>
 
-      <CustomFoodForm
-        mode="create"
-        returnTo={safeReturn}
-        initial={{
-          name: "",
-          brand: "",
-          servingQty: "100",
-          servingUnit: "g",
-          calories: "0",
-          proteinG: "",
-          carbsG: "",
-          fatG: "",
-          fiberG: "",
-          sugarG: "",
-          sodiumMg: "",
-        }}
-      />
+      <NewCustomFoodClient returnTo={safeReturn} />
     </div>
   );
 }

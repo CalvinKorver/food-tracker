@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AddOptionsSheet } from "@/components/shell/AddOptionsSheet";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { BarcodeScannerScreen } from "@/components/foods/BarcodeScannerScreen";
+import { LabelCaptureScreen } from "@/components/foods/LabelCaptureScreen";
 import type { FoodListItem } from "@/lib/food-shared";
 
 function diaryDateKeyFromPath(pathname: string): string {
@@ -16,29 +17,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [addOpen, setAddOpen] = useState(false);
-  const [scanOpen, setScanOpen] = useState(false);
+  const [overlay, setOverlay] = useState<"barcode" | "label" | null>(null);
 
-  const closeAdd = useCallback(() => setAddOpen(false), []);
-  const closeScan = useCallback(() => setScanOpen(false), []);
-
-  const searchFood = useCallback(() => {
-    const dateKey = diaryDateKeyFromPath(pathname);
-    router.push(`/diary/${dateKey}?add=snack`);
-  }, [pathname, router]);
-
-  const openScan = useCallback(() => {
-    setAddOpen(false);
-    setScanOpen(true);
-  }, []);
-
-  const onBarcodeFound = useCallback(
-    (food: FoodListItem) => {
-      setScanOpen(false);
-      const dateKey = diaryDateKeyFromPath(pathname);
-      router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`);
-    },
-    [pathname, router],
-  );
+  const dateKey = diaryDateKeyFromPath(pathname);
+  const diaryAddReturnTo = `/diary/${dateKey}?add=snack`;
 
   return (
     <div className="min-h-dvh bg-bg text-text">
@@ -49,14 +31,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <BottomNav onAdd={() => setAddOpen(true)} />
         <AddOptionsSheet
           open={addOpen}
-          onClose={closeAdd}
-          onSearchFood={searchFood}
-          onScanBarcode={openScan}
+          onClose={() => setAddOpen(false)}
+          onSearchFood={() => router.push(diaryAddReturnTo)}
+          onScanBarcode={() => setOverlay("barcode")}
+          onScanLabel={() => setOverlay("label")}
         />
         <BarcodeScannerScreen
-          open={scanOpen}
-          onClose={closeScan}
-          onFound={onBarcodeFound}
+          open={overlay === "barcode"}
+          onClose={() => setOverlay(null)}
+          onFound={(food: FoodListItem) => {
+            setOverlay(null);
+            router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`);
+          }}
+        />
+        <LabelCaptureScreen
+          open={overlay === "label"}
+          onClose={() => setOverlay(null)}
+          returnTo={diaryAddReturnTo}
         />
       </div>
     </div>

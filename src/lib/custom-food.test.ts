@@ -25,6 +25,23 @@ describe("parseCustomFoodInput", () => {
       fiberG: 0,
       sugarG: 0,
       sodiumMg: 0,
+      extras: { satFatG: 0, transFatG: 0, cholesterolMg: 0 },
+    });
+  });
+
+  it("parses optional sat fat / trans fat / cholesterol", () => {
+    const result = parseCustomFoodInput({
+      ...valid,
+      satFatG: 1.5,
+      transFatG: 0,
+      cholesterolMg: 160,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.extras).toEqual({
+      satFatG: 1.5,
+      transFatG: 0,
+      cholesterolMg: 160,
     });
   });
 

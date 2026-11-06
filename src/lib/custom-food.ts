@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db";
-import { FoodSource } from "@/generated/prisma/client";
+import { FoodSource, Prisma } from "@/generated/prisma/client";
+import { USER_FOOD_SOURCES } from "@/lib/food-shared";
+
+export type CustomFoodExtras = {
+  satFatG: number;
+  transFatG: number;
+  cholesterolMg: number;
+};
 
 export type CustomFoodInput = {
   name: string;
@@ -13,6 +20,8 @@ export type CustomFoodInput = {
   fiberG: number;
   sugarG: number;
   sodiumMg: number;
+  /** Omitted in some tests; defaults to zeros. */
+  extras?: CustomFoodExtras;
 };
 
 export type CustomFoodValidationError = {
@@ -20,7 +29,25 @@ export type CustomFoodValidationError = {
   message: string;
 };
 
-function optionalNonNeg(raw: unknown, fallback = 0): number | CustomFoodValidationError {
+const OPTIONAL_NUTRIENT_KEYS = [
+  "proteinG",
+  "carbsG",
+  "fatG",
+  "fiberG",
+  "sugarG",
+  "sodiumMg",
+] as const;
+
+const EXTRA_NUTRIENT_KEYS = [
+  "satFatG",
+  "transFatG",
+  "cholesterolMg",
+] as const;
+
+function optionalNonNeg(
+  raw: unknown,
+  fallback = 0,
+): number | CustomFoodValidationError {
   if (raw === undefined || raw === null || raw === "") return fallback;
   const n = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isFinite(n) || n < 0) {
@@ -29,7 +56,27 @@ function optionalNonNeg(raw: unknown, fallback = 0): number | CustomFoodValidati
   return n;
 }
 
-/** Pure validation for create/update forms. */
+function parseOptionalGroup<K extends string>(
+  raw: Record<string, unknown>,
+  keys: readonly K[],
+): { ok: true; values: Record<K, number> } | { ok: false; error: CustomFoodValidationError } {
+  const values = {} as Record<K, number>;
+  for (const key of keys) {
+    const parsed = optionalNonNeg(raw[key]);
+    if (typeof parsed === "object") return { ok: false, error: parsed };
+    values[key] = parsed;
+  }
+  return { ok: true, values };
+}
+
+function nutrientsExtraJson(extras: CustomFoodExtras): Prisma.InputJsonValue {
+  return {
+    satFatG: extras.satFatG,
+    transFatG: extras.transFatG,
+    cholesterolMg: extras.cholesterolMg,
+  };
+}
+
 export function parseCustomFoodInput(
   raw: Record<string, unknown>,
 ): { ok: true; data: CustomFoodInput } | { ok: false; error: CustomFoodValidationError } {
@@ -65,18 +112,10 @@ export function parseCustomFoodInput(
   const brandRaw = String(raw.brand ?? "").trim();
   const brand = brandRaw.length > 0 ? brandRaw : null;
 
-  const proteinG = optionalNonNeg(raw.proteinG);
-  if (typeof proteinG === "object") return { ok: false, error: proteinG };
-  const carbsG = optionalNonNeg(raw.carbsG);
-  if (typeof carbsG === "object") return { ok: false, error: carbsG };
-  const fatG = optionalNonNeg(raw.fatG);
-  if (typeof fatG === "object") return { ok: false, error: fatG };
-  const fiberG = optionalNonNeg(raw.fiberG);
-  if (typeof fiberG === "object") return { ok: false, error: fiberG };
-  const sugarG = optionalNonNeg(raw.sugarG);
-  if (typeof sugarG === "object") return { ok: false, error: sugarG };
-  const sodiumMg = optionalNonNeg(raw.sodiumMg);
-  if (typeof sodiumMg === "object") return { ok: false, error: sodiumMg };
+  const macros = parseOptionalGroup(raw, OPTIONAL_NUTRIENT_KEYS);
+  if (!macros.ok) return macros;
+  const extras = parseOptionalGroup(raw, EXTRA_NUTRIENT_KEYS);
+  if (!extras.ok) return extras;
 
   return {
     ok: true,
@@ -86,21 +125,34 @@ export function parseCustomFoodInput(
       servingQty,
       servingUnit,
       calories,
-      proteinG,
-      carbsG,
-      fatG,
-      fiberG,
-      sugarG,
-      sodiumMg,
+      ...macros.values,
+      extras: extras.values,
     },
   };
 }
 
-export async function createCustomFood(userId: string, input: CustomFoodInput) {
+export function resolveUserFoodSource(raw: unknown): FoodSource {
+  return String(raw) === "ocr" ? FoodSource.ocr : FoodSource.custom;
+}
+
+const EMPTY_EXTRAS: CustomFoodExtras = {
+  satFatG: 0,
+  transFatG: 0,
+  cholesterolMg: 0,
+};
+
+export async function createCustomFood(
+  userId: string,
+  input: CustomFoodInput,
+  options?: { source?: FoodSource },
+) {
+  const source = options?.source ?? FoodSource.custom;
+  const extras = input.extras ?? EMPTY_EXTRAS;
+
   return prisma.food.create({
     data: {
       userId,
-      source: FoodSource.custom,
+      source,
       name: input.name,
       brand: input.brand,
       servingQty: input.servingQty,
@@ -112,13 +164,18 @@ export async function createCustomFood(userId: string, input: CustomFoodInput) {
       fiberG: input.fiberG,
       sugarG: input.sugarG,
       sodiumMg: input.sodiumMg,
+      nutrientsExtra: nutrientsExtraJson(extras),
     },
   });
 }
 
 export async function getCustomFood(userId: string, foodId: string) {
   return prisma.food.findFirst({
-    where: { id: foodId, userId, source: FoodSource.custom },
+    where: {
+      id: foodId,
+      userId,
+      source: { in: [...USER_FOOD_SOURCES] },
+    },
   });
 }
 
@@ -146,6 +203,7 @@ export async function updateCustomFood(
       fiberG: input.fiberG,
       sugarG: input.sugarG,
       sodiumMg: input.sodiumMg,
+      nutrientsExtra: nutrientsExtraJson(input.extras ?? EMPTY_EXTRAS),
     },
   });
 }

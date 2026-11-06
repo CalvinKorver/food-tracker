@@ -1,5 +1,8 @@
 import { FoodSource, MealType } from "@/generated/prisma/enums";
 
+/** User-owned foods editable on the Foods tab (manual custom + OCR). */
+export const USER_FOOD_SOURCES = [FoodSource.custom, FoodSource.ocr] as const;
+
 export type FoodListItem = {
   id: string;
   name: string;

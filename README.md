@@ -46,6 +46,16 @@ Optional: `PORT=3005 npm run local` to force a specific port.
 
 Default DB credentials (local only): user/password/db = `foodtracker`.
 
+### Scan Label (OCR)
+
+Plus → **Scan Label** uses OpenAI `gpt-4o-mini` vision. Add to `.env`:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+On a phone, open the app over **HTTPS** (e.g. ngrok) so the camera permission prompt works.
+
 ```bash
 npm run db:migrate   # apply Prisma migrations
 npm run db:seed      # default user + sample custom foods
