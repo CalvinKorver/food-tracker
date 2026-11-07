@@ -8,7 +8,7 @@
     "setup": "node scripts/ensure-local.mjs",
     "build": "next build --turbopack && npm run build:standalone-assets",
     "build:standalone-assets": "cp -R public .next/standalone/public && cp -R .next/static .next/standalone/.next/static",
-    "start": "node .next/standalone/server.js",
+    "start": "npx prisma migrate deploy && node .next/standalone/server.js",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
