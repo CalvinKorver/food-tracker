@@ -1,10 +1,21 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { FoodResultRow } from "@/components/foods/FoodResultRow";
 import { BarcodeScannerScreen } from "@/components/foods/BarcodeScannerScreen";
 import { BarcodeIcon } from "@/components/icons/BarcodeIcon";
-import { toggleFavoriteAction } from "@/app/diary/actions";
+import {
+  searchCatalogAction,
+  selectCatalogFoodAction,
+  toggleFavoriteAction,
+  type CatalogSearchHit,
+} from "@/app/diary/actions";
 import { type AddFoodTab, type FoodListItem } from "@/lib/food-shared";
 
 type FoodPickerProps = {
@@ -23,6 +34,9 @@ const TABS: { id: AddFoodTab; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
+const SEARCH_DEBOUNCE_MS = 450;
+const MIN_REMOTE_QUERY = 3;
+
 export function FoodPicker({
   initialRecents,
   initialFavorites,
@@ -38,6 +52,12 @@ export function FoodPicker({
   const [favorites, setFavorites] = useState(initialFavorites);
   const [allFoods, setAllFoods] = useState(initialAll);
   const [scanOpen, setScanOpen] = useState(false);
+  const [remoteHits, setRemoteHits] = useState<CatalogSearchHit[]>([]);
+  const [remoteStatus, setRemoteStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [selectingBarcode, setSelectingBarcode] = useState<string | null>(null);
   const [, startFavoriteTransition] = useTransition();
 
   const lists = useMemo(
@@ -59,6 +79,42 @@ export function FoodPicker({
         (f.brand?.toLowerCase().includes(q) ?? false),
     );
   }, [lists, tab, query]);
+
+  const trimmedQuery = query.trim();
+  const showRemote = trimmedQuery.length >= MIN_REMOTE_QUERY;
+
+  useEffect(() => {
+    if (trimmedQuery.length < MIN_REMOTE_QUERY) {
+      setRemoteHits([]);
+      setRemoteStatus("idle");
+      setRemoteError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRemoteStatus("loading");
+    setRemoteError(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const result = await searchCatalogAction(trimmedQuery);
+        if (cancelled) return;
+        if (!result.ok) {
+          setRemoteHits([]);
+          setRemoteStatus("error");
+          setRemoteError(result.error);
+          return;
+        }
+        setRemoteHits(result.foods);
+        setRemoteStatus("ready");
+      })();
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [trimmedQuery]);
 
   const emptyCopy =
     tab === "recents"
@@ -89,6 +145,21 @@ export function FoodPicker({
       }
       return prev.filter((f) => f.id !== foodId);
     });
+  }
+
+  async function pickRemote(hit: CatalogSearchHit) {
+    setSelectingBarcode(hit.barcode);
+    setRemoteError(null);
+    try {
+      const result = await selectCatalogFoodAction(hit.barcode);
+      if (!result.ok) {
+        setRemoteError(result.error);
+        return;
+      }
+      onSelect(result.food);
+    } finally {
+      setSelectingBarcode(null);
+    }
   }
 
   return (
@@ -146,16 +217,22 @@ export function FoodPicker({
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {showRemote ? (
+          <div className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Your foods
+          </div>
+        ) : null}
+
         {filtered.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-text-muted">
-            {emptyCopy}
+          <p className="px-4 py-6 text-center text-sm text-text-muted">
+            {showRemote ? "No matching foods of yours" : emptyCopy}
           </p>
         ) : (
           filtered.map((food) => (
             <FoodResultRow
               key={food.id}
               food={food}
-              onSelect={onSelect}
+              onSelect={() => onSelect(food)}
               onToggleFavorite={(foodId) => {
                 startFavoriteTransition(async () => {
                   const result = await toggleFavoriteAction(foodId);
@@ -167,6 +244,57 @@ export function FoodPicker({
             />
           ))
         )}
+
+        {showRemote ? (
+          <>
+            <div className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Open Food Facts
+            </div>
+            {remoteStatus === "loading" ? (
+              <p className="px-4 py-6 text-center text-sm text-text-muted">
+                Searching…
+              </p>
+            ) : null}
+            {remoteStatus === "error" ? (
+              <p className="px-4 py-6 text-center text-sm text-danger">
+                {remoteError ?? "Search failed"}
+              </p>
+            ) : null}
+            {remoteStatus === "ready" && remoteHits.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-text-muted">
+                No catalog matches
+              </p>
+            ) : null}
+            {remoteStatus === "ready"
+              ? remoteHits.map((hit) => (
+                  <FoodResultRow
+                    key={hit.barcode}
+                    food={{
+                      name: hit.name,
+                      brand: hit.brand,
+                      isFavorite: false,
+                    }}
+                    badge="OFF"
+                    detail="Tap to load nutrition"
+                    onSelect={() => {
+                      if (selectingBarcode) return;
+                      void pickRemote(hit);
+                    }}
+                  />
+                ))
+              : null}
+            {selectingBarcode ? (
+              <p className="px-4 py-3 text-center text-sm text-text-muted">
+                Opening…
+              </p>
+            ) : null}
+            {remoteError && remoteStatus === "ready" ? (
+              <p className="px-4 py-2 text-center text-sm text-danger">
+                {remoteError}
+              </p>
+            ) : null}
+          </>
+        ) : null}
 
         {footer && tab === "all" ? footer : null}
       </div>

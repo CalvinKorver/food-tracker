@@ -182,9 +182,100 @@ export async function fetchOffProductByBarcode(
   return normalizeOffProduct(product);
 }
 
+/** Slim search hit — nutrition is loaded on select via product API. */
+export type OffSearchHit = {
+  barcode: string;
+  name: string;
+  brand: string | null;
+};
+
+type OffSearchALiciousResponse = {
+  hits?: Array<{
+    code?: string;
+    product_name?: string;
+    brands?: string | string[];
+  }>;
+};
+
+const OFF_SEARCH_PAGE_SIZE = 20;
+
+/**
+ * Full-text search via Search-a-licious.
+ * world.openfoodfacts.org/cgi/search.pl is currently returning 503.
+ */
+export async function searchOffProducts(
+  query: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<OffSearchHit[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+
+  const res = await fetchImpl("https://search.openfoodfacts.org/search", {
+    method: "POST",
+    headers: {
+      "User-Agent": OFF_USER_AGENT,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      q: trimmed,
+      page_size: OFF_SEARCH_PAGE_SIZE,
+      fields: ["code", "product_name", "brands"],
+      langs: ["en"],
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Open Food Facts search failed (${res.status})`);
+  }
+
+  let data: OffSearchALiciousResponse;
+  try {
+    data = (await res.json()) as OffSearchALiciousResponse;
+  } catch {
+    throw new Error("Open Food Facts search is temporarily unavailable");
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("Open Food Facts search is temporarily unavailable");
+  }
+
+  const hits = Array.isArray(data.hits) ? data.hits : [];
+  const foods: OffSearchHit[] = [];
+  for (const hit of hits) {
+    const barcode = String(hit.code ?? "").trim();
+    const name = String(hit.product_name ?? "").trim();
+    if (!barcode || !name) continue;
+    const brandRaw = hit.brands;
+    const brand = Array.isArray(brandRaw)
+      ? brandRaw.map(String).filter(Boolean).join(", ") || null
+      : String(brandRaw ?? "").trim() || null;
+    foods.push({ barcode, name, brand });
+  }
+  return foods;
+}
+
 export const openFoodFactsAdapter: FoodSourceAdapter = {
-  async search() {
-    throw new Error("Open Food Facts search is not implemented (Phase 2)");
+  async search(query: string) {
+    // Adapter contract is NormalizedFood[]; search hits are slim — hydrate on select.
+    const hits = await searchOffProducts(query);
+    return hits.map((hit) => ({
+      source: FoodSource.open_food_facts,
+      externalId: hit.barcode,
+      barcode: hit.barcode,
+      name: hit.name,
+      brand: hit.brand,
+      servingQty: 1,
+      servingUnit: "serving",
+      calories: 0,
+      proteinG: 0,
+      carbsG: 0,
+      fatG: 0,
+      fiberG: 0,
+      sugarG: 0,
+      sodiumMg: 0,
+      nutrientsExtra: { searchPreview: true },
+      sourcePayload: hit,
+    }));
   },
   async getByBarcode(code: string) {
     return fetchOffProductByBarcode(code);

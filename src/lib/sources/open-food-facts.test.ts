@@ -4,6 +4,7 @@ import {
   fetchOffProductByBarcode,
   normalizeOffProduct,
   openFoodFactsAdapter,
+  searchOffProducts,
 } from "@/lib/sources/open-food-facts";
 import offProduct from "@/lib/sources/__fixtures__/off-product.json";
 import offPer100g from "@/lib/sources/__fixtures__/off-product-per100g.json";
@@ -173,11 +174,96 @@ describe("fetchOffProductByBarcode", () => {
   });
 });
 
-describe("openFoodFactsAdapter", () => {
-  it("throws not-implemented for live search", async () => {
-    await expect(openFoodFactsAdapter.search("eggs")).rejects.toThrow(
-      /not implemented/i,
+describe("searchOffProducts", () => {
+  it("returns [] for queries under 3 characters", async () => {
+    const fetchMock = vi.fn();
+    await expect(searchOffProducts("oa", fetchMock)).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("maps Search-a-licious hits and skips entries without a code", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        hits: [
+          {
+            code: "3017620422003",
+            product_name: "Nutella",
+            brands: ["Ferrero"],
+          },
+          {
+            product_name: "No Code Yogurt",
+            brands: "Chobani",
+          },
+        ],
+      }),
+    });
+
+    const foods = await searchOffProducts("nutella", fetchMock);
+    expect(foods).toHaveLength(1);
+    expect(foods[0]).toEqual({
+      barcode: "3017620422003",
+      name: "Nutella",
+      brand: "Ferrero",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://search.openfoodfacts.org/search",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "User-Agent": expect.stringContaining("FoodTracker"),
+        }),
+      }),
     );
+  });
+
+  it("throws when OFF search HTTP fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    });
+    await expect(searchOffProducts("yogurt", fetchMock)).rejects.toThrow(
+      /search failed/i,
+    );
+  });
+
+  it("throws when OFF returns a non-JSON body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error("Unexpected token < in JSON");
+      },
+    });
+    await expect(searchOffProducts("yogurt", fetchMock)).rejects.toThrow(
+      /temporarily unavailable/i,
+    );
+  });
+});
+
+describe("openFoodFactsAdapter", () => {
+  it("delegates search to OFF search", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        hits: [
+          {
+            code: "3017620422003",
+            product_name: "Nutella",
+            brands: ["Ferrero"],
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const foods = await openFoodFactsAdapter.search("nutella");
+    expect(foods).toHaveLength(1);
+    expect(foods[0]?.name).toBe("Nutella");
+    expect(foods[0]?.barcode).toBe("3017620422003");
   });
 
   it("delegates getByBarcode to OFF fetch", async () => {

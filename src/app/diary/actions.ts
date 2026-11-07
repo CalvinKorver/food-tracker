@@ -89,6 +89,47 @@ export async function toggleFavoriteAction(foodId: string) {
 
 const BARCODE_RE = /^\d{8,14}$/;
 
+/** Slim OFF hit for the picker — nutrition loaded on select via product API. */
+export type CatalogSearchHit = {
+  barcode: string;
+  name: string;
+  brand: string | null;
+};
+
+export async function searchCatalogAction(
+  query: string,
+): Promise<
+  | { ok: true; foods: CatalogSearchHit[] }
+  | { ok: false; error: string }
+> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) {
+    return { ok: false as const, error: "Type at least 3 characters" };
+  }
+
+  await getCurrentUser();
+
+  try {
+    const { searchOffProducts } = await import("@/lib/sources/open-food-facts");
+    const foods = await searchOffProducts(trimmed);
+    return { ok: true as const, foods };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to search foods";
+    return { ok: false as const, error: message };
+  }
+}
+
+/** Persist an OFF search/scan hit, then return a FoodListItem for the amount step. */
+export async function selectCatalogFoodAction(
+  barcode: string,
+): Promise<
+  | { ok: true; food: FoodListItem }
+  | { ok: false; error: string }
+> {
+  return lookupBarcodeAction(barcode);
+}
+
 export async function lookupBarcodeAction(
   code: string,
 ): Promise<
