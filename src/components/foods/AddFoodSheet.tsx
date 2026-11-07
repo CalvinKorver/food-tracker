@@ -14,7 +14,7 @@ import {
   type AddFoodTab,
   type FoodListItem,
 } from "@/lib/food-shared";
-import type { MealType } from "@/generated/prisma/client";
+import type { MealType } from "@/generated/prisma/enums";
 
 type AddFoodSheetProps = {
   meal: MealType;
@@ -54,7 +54,7 @@ export function AddFoodSheet({
   const [, startFavoriteTransition] = useTransition();
 
   const close = () => {
-    router.push(`/diary/${dateKey}`);
+    router.push(`/diary/${dateKey}`, { transitionTypes: ["sheet-close"] });
     router.refresh();
   };
 

@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import { redirect } from "next/navigation";
 import { AddFoodSheet } from "@/components/foods/AddFoodSheet";
 import { DayHeader } from "@/components/diary/DayHeader";
@@ -84,15 +85,21 @@ export default async function DiaryPage({
       </section>
 
       {addMeal ? (
-        <AddFoodSheet
-          meal={addMeal}
-          dateKey={pathKey}
-          loggedOnKey={resolved.key}
-          initialRecents={recents}
-          initialFavorites={favorites}
-          initialAll={allFoods}
-          initialSelected={initialSelected}
-        />
+        <ViewTransition
+          enter={{ "sheet-open": "sheet-slide-up", default: "none" }}
+          exit={{ "sheet-close": "sheet-slide-down", default: "none" }}
+          default="none"
+        >
+          <AddFoodSheet
+            meal={addMeal}
+            dateKey={pathKey}
+            loggedOnKey={resolved.key}
+            initialRecents={recents}
+            initialFavorites={favorites}
+            initialAll={allFoods}
+            initialSelected={initialSelected}
+          />
+        </ViewTransition>
       ) : null}
     </div>
   );

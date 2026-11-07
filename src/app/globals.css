@@ -57,3 +57,43 @@ button {
   font: inherit;
   color: inherit;
 }
+
+/* Add Food sheet View Transitions */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-new(.sheet-slide-up) {
+  animation: 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both sheet-slide-up;
+}
+
+::view-transition-old(.sheet-slide-down) {
+  animation: 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both sheet-slide-down;
+}
+
+@keyframes sheet-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

@@ -32,7 +32,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AddOptionsSheet
           open={addOpen}
           onClose={() => setAddOpen(false)}
-          onSearchFood={() => router.push(diaryAddReturnTo)}
+          onSearchFood={() =>
+            router.push(diaryAddReturnTo, { transitionTypes: ["sheet-open"] })
+          }
           onScanBarcode={() => setOverlay("barcode")}
           onScanLabel={() => setOverlay("label")}
         />
@@ -41,7 +43,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClose={() => setOverlay(null)}
           onFound={(food: FoodListItem) => {
             setOverlay(null);
-            router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`);
+            router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`, {
+              transitionTypes: ["sheet-open"],
+            });
           }}
         />
         <LabelCaptureScreen

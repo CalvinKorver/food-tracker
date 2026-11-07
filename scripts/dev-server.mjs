@@ -47,7 +47,7 @@ if (port !== preferred) {
 
 const child = spawn(
   "npx",
-  ["next", "dev", "--turbopack", "-p", String(port)],
+  ["next", "dev", "-p", String(port)],
   {
     cwd: root,
     stdio: "inherit",

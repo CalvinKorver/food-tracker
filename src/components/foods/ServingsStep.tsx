@@ -7,7 +7,7 @@ import {
   quantityMultiplier,
   type QuantityUnitMode,
 } from "@/lib/quantity";
-import { MealType } from "@/generated/prisma/client";
+import { MealType } from "@/generated/prisma/enums";
 
 const MEAL_OPTIONS: { meal: MealType; label: string }[] = [
   { meal: MealType.breakfast, label: "Breakfast" },

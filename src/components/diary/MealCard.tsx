@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { EntryRow, type EntryRowData } from "@/components/diary/EntryRow";
-import type { MealType } from "@/generated/prisma/client";
+import type { MealType } from "@/generated/prisma/enums";
 
 type MealCardProps = {
   meal: MealType;
@@ -28,6 +28,7 @@ export function MealCard({ meal, label, dateKey, entries }: MealCardProps) {
         </button>
         <Link
           href={`/diary/${dateKey}?add=${meal}`}
+          transitionTypes={["sheet-open"]}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-2xl font-semibold text-accent-teal transition hover:bg-surface-hover"
           aria-label={`Add food to ${label}`}
           onClick={(e) => e.stopPropagation()}
