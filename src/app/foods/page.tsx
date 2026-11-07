@@ -11,12 +11,21 @@ export default async function FoodsPage() {
     <div className="flex flex-col gap-4 pt-1">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-semibold tracking-tight">Foods</h1>
-        <Link
-          href="/foods/new"
-          className="rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-bg transition hover:bg-accent-hover"
-        >
-          Add custom
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/foods/new"
+            className="rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-accent-hover"
+          >
+            Custom
+          </Link>
+          <Link
+            href="/foods/recipes/new"
+            transitionTypes={["sheet-open"]}
+            className="rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-accent-hover"
+          >
+            Recipe
+          </Link>
+        </div>
       </header>
 
       {foods.length === 0 ? (

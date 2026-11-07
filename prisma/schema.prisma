@@ -12,6 +12,7 @@ enum FoodSource {
   custom
   barcode
   ocr
+  recipe
 }
 
 enum MealType {
@@ -51,20 +52,42 @@ model Food {
   fatG           Float      @default(0) @map("fat_g")
   fiberG         Float      @default(0) @map("fiber_g")
   sugarG         Float      @default(0) @map("sugar_g")
-  sodiumMg       Float      @default(0) @map("sodium_mg")
-  nutrientsExtra Json       @default("{}") @map("nutrients_extra")
-  sourcePayload  Json?      @map("source_payload")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sodiumMg          Float      @default(0) @map("sodium_mg")
+  nutrientsExtra    Json       @default("{}") @map("nutrients_extra")
+  sourcePayload     Json?      @map("source_payload")
+  servingsPerRecipe Float?     @map("servings_per_recipe")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user      User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries   FoodEntry[]
-  favorites Favorite[]
+  user                User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries             FoodEntry[]
+  favorites           Favorite[]
+  recipeIngredients   RecipeIngredient[] @relation("RecipeToIngredients")
+  usedInRecipes       RecipeIngredient[] @relation("IngredientInRecipes")
 
   @@unique([source, externalId])
   @@index([userId, source])
   @@index([name])
   @@map("foods")
+}
+
+model RecipeIngredient {
+  id            String @id @default(uuid()) @db.Uuid
+  recipeId      String @map("recipe_id") @db.Uuid
+  ingredientId  String @map("ingredient_id") @db.Uuid
+  /** Normalized multiplier of the ingredient's defined serving. */
+  servings      Float
+  quantityValue Float  @map("quantity_value")
+  /** "serving", "recipe", or the ingredient's serving unit string. */
+  quantityUnit  String @map("quantity_unit")
+  position      Int    @default(0)
+
+  recipe     Food @relation("RecipeToIngredients", fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Food @relation("IngredientInRecipes", fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([recipeId])
+  @@index([ingredientId])
+  @@map("recipe_ingredients")
 }
 
 model Favorite {

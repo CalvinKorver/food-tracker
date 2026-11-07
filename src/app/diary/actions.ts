@@ -38,7 +38,8 @@ export async function addFoodEntryAction(input: {
   loggedOnKey: string;
   meal: string;
   quantity: number;
-  unitMode: "serving" | "food";
+  unitMode: "serving" | "food" | "recipe";
+  selectedUnit?: string;
 }) {
   if (!isMealType(input.meal)) {
     return { ok: false as const, error: "Invalid meal" };
@@ -46,7 +47,11 @@ export async function addFoodEntryAction(input: {
   if (!(input.quantity > 0)) {
     return { ok: false as const, error: "Quantity must be greater than 0" };
   }
-  if (input.unitMode !== "serving" && input.unitMode !== "food") {
+  if (
+    input.unitMode !== "serving" &&
+    input.unitMode !== "food" &&
+    input.unitMode !== "recipe"
+  ) {
     return { ok: false as const, error: "Invalid unit" };
   }
 
@@ -60,6 +65,7 @@ export async function addFoodEntryAction(input: {
       meal: input.meal as MealType,
       quantity: input.quantity,
       unitMode: input.unitMode,
+      selectedUnit: input.selectedUnit,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to add food";

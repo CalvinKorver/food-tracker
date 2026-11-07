@@ -8,9 +8,34 @@ export type OffProduct = {
   product_name?: string;
   brands?: string;
   serving_quantity?: string | number;
+  serving_quantity_unit?: string;
   serving_size?: string;
   nutriments?: OffNutriments;
 };
+
+/** Normalize OFF / free-text unit strings to short labels. */
+export function normalizeOffUnit(raw: string): string {
+  const u = raw.trim().toLowerCase();
+  if (!u) return "g";
+  if (u === "g" || u === "gr" || u === "gram" || u === "grams") return "g";
+  if (u === "kg" || u === "kilogram" || u === "kilograms") return "kg";
+  if (u === "oz" || u === "ounce" || u === "ounces") return "oz";
+  if (u === "lb" || u === "lbs" || u === "pound" || u === "pounds") return "lb";
+  if (
+    u === "ml" ||
+    u === "milliliter" ||
+    u === "milliliters" ||
+    u === "millilitre" ||
+    u === "millilitres"
+  ) {
+    return "ml";
+  }
+  if (u === "l" || u === "liter" || u === "liters" || u === "litre" || u === "litres") {
+    return "l";
+  }
+  if (u === "cup" || u === "cups") return "cup";
+  return u;
+}
 
 const OFF_USER_AGENT = "FoodTracker/0.1 (https://github.com/calvinkorver/food-tracker)";
 
@@ -55,9 +80,13 @@ function sodiumMg(
 function parseServing(raw: OffProduct): { qty: number; unit: string } | null {
   const qty = num(raw.serving_quantity);
   if (qty !== null && qty > 0) {
+    const fromUnitField = String(raw.serving_quantity_unit ?? "").trim();
+    if (fromUnitField) {
+      return { qty, unit: normalizeOffUnit(fromUnitField) };
+    }
     const size = String(raw.serving_size ?? "").trim();
     const unitMatch = size.match(/[a-zA-Z]+/);
-    return { qty, unit: unitMatch?.[0] ?? "g" };
+    return { qty, unit: normalizeOffUnit(unitMatch?.[0] ?? "g") };
   }
 
   const size = String(raw.serving_size ?? "").trim();
@@ -65,7 +94,7 @@ function parseServing(raw: OffProduct): { qty: number; unit: string } | null {
   if (!match) return null;
   const parsedQty = Number(match[1]);
   if (!(parsedQty > 0)) return null;
-  return { qty: parsedQty, unit: match[2] };
+  return { qty: parsedQty, unit: normalizeOffUnit(match[2]) };
 }
 
 /**

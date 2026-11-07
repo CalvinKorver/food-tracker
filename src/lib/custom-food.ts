@@ -189,7 +189,7 @@ export async function updateCustomFood(
     throw new Error("Food not found");
   }
 
-  return prisma.food.update({
+  const updated = await prisma.food.update({
     where: { id: foodId },
     data: {
       name: input.name,
@@ -206,6 +206,10 @@ export async function updateCustomFood(
       nutrientsExtra: nutrientsExtraJson(input.extras ?? EMPTY_EXTRAS),
     },
   });
+
+  const { recomputeRecipesUsing } = await import("@/lib/recipes");
+  await recomputeRecipesUsing(foodId);
+  return updated;
 }
 
 export async function deleteCustomFood(
@@ -224,6 +228,16 @@ export async function deleteCustomFood(
     return {
       ok: false,
       error: "Used in diary — can’t delete",
+    };
+  }
+
+  const recipeUseCount = await prisma.recipeIngredient.count({
+    where: { ingredientId: foodId },
+  });
+  if (recipeUseCount > 0) {
+    return {
+      ok: false,
+      error: "Used in a recipe — can’t delete",
     };
   }
 

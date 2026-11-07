@@ -1,7 +1,11 @@
 import { FoodSource, MealType } from "@/generated/prisma/enums";
 
-/** User-owned foods editable on the Foods tab (manual custom + OCR). */
-export const USER_FOOD_SOURCES = [FoodSource.custom, FoodSource.ocr] as const;
+/** User-owned foods shown on the Foods tab (custom, OCR, recipes). */
+export const USER_FOOD_SOURCES = [
+  FoodSource.custom,
+  FoodSource.ocr,
+  FoodSource.recipe,
+] as const;
 
 export type FoodListItem = {
   id: string;
@@ -17,6 +21,7 @@ export type FoodListItem = {
   fiberG: number;
   sugarG: number;
   sodiumMg: number;
+  servingsPerRecipe: number | null;
   isFavorite: boolean;
 };
 
@@ -32,6 +37,8 @@ export function sourceBadge(source: FoodSource): string {
       return "Barcode";
     case FoodSource.ocr:
       return "OCR";
+    case FoodSource.recipe:
+      return "Recipe";
   }
 }
 

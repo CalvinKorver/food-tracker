@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { quantityMultiplier } from "@/lib/quantity";
+import {
+  formatQuantityLabel,
+  isWeightUnit,
+  quantityMultiplier,
+  quantityUnitFromMode,
+  toGrams,
+} from "@/lib/quantity";
 
 describe("quantityMultiplier", () => {
   it("returns quantity when unit is serving", () => {
@@ -8,6 +14,34 @@ describe("quantityMultiplier", () => {
 
   it("divides by servingQty when unit is food", () => {
     expect(quantityMultiplier(150, "food", 100)).toBe(1.5);
+  });
+
+  it("multiplies by servingsPerRecipe when unit is recipe", () => {
+    expect(quantityMultiplier(2, "recipe", 1, 4)).toBe(8);
+  });
+
+  it("converts selected weight unit to servings", () => {
+    // 4 oz serving; 113.3980925 g ≈ 1 serving
+    const ozServing = quantityMultiplier(4, "food", 4, null, {
+      foodServingUnit: "oz",
+      selectedUnit: "oz",
+    });
+    expect(ozServing).toBe(1);
+
+    const grams = quantityMultiplier(113.3980925, "food", 4, null, {
+      foodServingUnit: "oz",
+      selectedUnit: "g",
+    });
+    expect(grams).toBeCloseTo(1, 5);
+  });
+
+  it("rejects incompatible unit conversion", () => {
+    expect(() =>
+      quantityMultiplier(100, "food", 1, null, {
+        foodServingUnit: "portion",
+        selectedUnit: "g",
+      }),
+    ).toThrow(/cannot convert/i);
   });
 
   it("rejects quantity <= 0", () => {
@@ -20,8 +54,42 @@ describe("quantityMultiplier", () => {
   });
 
   it("rejects non-positive serving size in food mode", () => {
-    expect(() => quantityMultiplier(50, "food", 0)).toThrow(
-      /serving size/i,
+    expect(() => quantityMultiplier(50, "food", 0)).toThrow(/serving size/i);
+  });
+
+  it("rejects missing servingsPerRecipe in recipe mode", () => {
+    expect(() => quantityMultiplier(1, "recipe", 1, null)).toThrow(
+      /recipe servings/i,
     );
+  });
+});
+
+describe("weight helpers", () => {
+  it("detects weight units", () => {
+    expect(isWeightUnit("g")).toBe(true);
+    expect(isWeightUnit("oz")).toBe(true);
+    expect(isWeightUnit("portion")).toBe(false);
+  });
+
+  it("converts to grams", () => {
+    expect(toGrams(1, "g")).toBe(1);
+    expect(toGrams(1, "oz")).toBeCloseTo(28.349523125, 8);
+    expect(toGrams(1, "cup")).toBeNull();
+  });
+});
+
+describe("quantityUnitFromMode", () => {
+  it("maps modes to stored unit keys", () => {
+    expect(quantityUnitFromMode("serving", "g")).toBe("serving");
+    expect(quantityUnitFromMode("food", "g")).toBe("g");
+    expect(quantityUnitFromMode("food", "oz", "g")).toBe("g");
+    expect(quantityUnitFromMode("recipe", "serving")).toBe("recipe");
+  });
+});
+
+describe("formatQuantityLabel", () => {
+  it("formats recipe units", () => {
+    expect(formatQuantityLabel(1, "recipe")).toBe("1 recipe");
+    expect(formatQuantityLabel(2, "recipe")).toBe("2 recipes");
   });
 });

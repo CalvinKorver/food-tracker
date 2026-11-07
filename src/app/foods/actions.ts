@@ -45,6 +45,63 @@ function formRecord(formData: FormData): Record<string, unknown> {
   };
 }
 
+export async function createRecipeAction(input: {
+  name: string;
+  servingsPerRecipe: number;
+  ingredients: Array<{
+    foodId: string;
+    quantity: number;
+    unitMode: "serving" | "food" | "recipe";
+    selectedUnit?: string;
+  }>;
+}) {
+  const name = input.name.trim();
+  if (!name) {
+    return { ok: false as const, error: "Recipe name is required" };
+  }
+  if (!(input.servingsPerRecipe > 0)) {
+    return {
+      ok: false as const,
+      error: "Servings per recipe must be greater than 0",
+    };
+  }
+  if (!Array.isArray(input.ingredients) || input.ingredients.length === 0) {
+    return { ok: false as const, error: "Add at least one ingredient" };
+  }
+  for (const item of input.ingredients) {
+    if (!(item.quantity > 0)) {
+      return {
+        ok: false as const,
+        error: "Ingredient quantity must be greater than 0",
+      };
+    }
+    if (
+      item.unitMode !== "serving" &&
+      item.unitMode !== "food" &&
+      item.unitMode !== "recipe"
+    ) {
+      return { ok: false as const, error: "Invalid unit" };
+    }
+  }
+
+  const user = await getCurrentUser();
+  try {
+    const { createRecipe } = await import("@/lib/recipes");
+    await createRecipe(user.id, {
+      name,
+      servingsPerRecipe: input.servingsPerRecipe,
+      ingredients: input.ingredients,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to create recipe";
+    return { ok: false as const, error: message };
+  }
+
+  revalidateFoods();
+  return { ok: true as const };
+}
+
 export async function createCustomFoodAction(formData: FormData) {
   const parsed = parseCustomFoodInput(formRecord(formData));
   if (!parsed.ok) {

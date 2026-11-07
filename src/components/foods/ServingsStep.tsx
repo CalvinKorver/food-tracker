@@ -4,7 +4,11 @@ import { useMemo, useState, useTransition } from "react";
 import { formatNutrient, netCarbs } from "@/lib/nutrients";
 import { type FoodListItem } from "@/lib/food-shared";
 import {
+  isWeightUnit,
+  normalizeUnitKey,
   quantityMultiplier,
+  RECIPE_UNIT_KEY,
+  SERVING_UNIT_KEY,
   type QuantityUnitMode,
 } from "@/lib/quantity";
 import { MealType } from "@/generated/prisma/enums";
@@ -18,29 +22,65 @@ const MEAL_OPTIONS: { meal: MealType; label: string }[] = [
 
 type ServingsStepProps = {
   food: FoodListItem;
-  meal: MealType;
+  meal?: MealType;
+  confirmLabel?: string;
   onBack: () => void;
   onConfirm: (input: {
     quantity: number;
     unitMode: QuantityUnitMode;
-    meal: MealType;
+    selectedUnit?: string;
+    meal?: MealType;
   }) => Promise<void>;
 };
+
+function unitOptionsFor(food: FoodListItem): string[] {
+  const options: string[] = [SERVING_UNIT_KEY];
+  const native = food.servingUnit.trim();
+  if (isWeightUnit(native)) {
+    options.push("g");
+    if (normalizeUnitKey(native) !== "g") {
+      options.push(native);
+    }
+  } else if (native && normalizeUnitKey(native) !== SERVING_UNIT_KEY) {
+    options.push(native);
+  }
+  if (food.servingsPerRecipe != null && food.servingsPerRecipe > 0) {
+    options.push(RECIPE_UNIT_KEY);
+  }
+  return options;
+}
+
+function modeFromSelected(selected: string): QuantityUnitMode {
+  if (selected === SERVING_UNIT_KEY) return "serving";
+  if (selected === RECIPE_UNIT_KEY) return "recipe";
+  return "food";
+}
+
+function optionLabel(unit: string): string {
+  if (unit === SERVING_UNIT_KEY) return "serving(s)";
+  if (unit === RECIPE_UNIT_KEY) return "recipe(s)";
+  return unit;
+}
 
 export function ServingsStep({
   food,
   meal,
+  confirmLabel,
   onBack,
   onConfirm,
 }: ServingsStepProps) {
+  const options = useMemo(() => unitOptionsFor(food), [food]);
   const [quantity, setQuantity] = useState("1");
-  const [unitMode, setUnitMode] = useState<QuantityUnitMode>("serving");
+  const [selectedUnit, setSelectedUnit] = useState(options[0] ?? SERVING_UNIT_KEY);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const amount = Number(quantity);
   const valid = Number.isFinite(amount) && amount > 0;
+  const needsMeal = meal != null;
+  const buttonLabel = confirmLabel ?? (needsMeal ? "Add" : "Add to recipe");
+  const unitMode = modeFromSelected(selectedUnit);
 
   const preview = useMemo(() => {
     if (!valid) return null;
@@ -49,6 +89,13 @@ export function ServingsStep({
         amount,
         unitMode,
         food.servingQty,
+        food.servingsPerRecipe,
+        unitMode === "food"
+          ? {
+              foodServingUnit: food.servingUnit,
+              selectedUnit,
+            }
+          : undefined,
       );
       return {
         calories: food.calories * multiplier,
@@ -62,20 +109,32 @@ export function ServingsStep({
     } catch {
       return null;
     }
-  }, [food, amount, unitMode, valid]);
+  }, [food, amount, unitMode, selectedUnit, valid]);
 
-  function confirmMeal(chosenMeal: MealType) {
+  function submit(chosenMeal?: MealType) {
     if (!valid) return;
     setError(null);
     setPickerOpen(false);
     startTransition(async () => {
       try {
-        await onConfirm({ quantity: amount, unitMode, meal: chosenMeal });
+        await onConfirm({
+          quantity: amount,
+          unitMode,
+          selectedUnit: unitMode === "food" ? selectedUnit : undefined,
+          meal: chosenMeal,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to add");
       }
     });
   }
+
+  const helper =
+    unitMode === "serving"
+      ? `Enter how many servings (${formatNutrient(food.servingQty)} ${food.servingUnit} each).`
+      : unitMode === "recipe"
+        ? `Enter how many full recipes (${formatNutrient(food.servingsPerRecipe ?? 0)} servings each).`
+        : `Enter amount in ${selectedUnit} (1 serving = ${formatNutrient(food.servingQty)} ${food.servingUnit}).`;
 
   return (
     <div className="flex h-full flex-col">
@@ -110,22 +169,19 @@ export function ServingsStep({
               className="w-28 rounded-xl border border-border bg-bg px-3 py-3 text-lg font-semibold tabular-nums text-text outline-none focus:border-accent"
             />
             <select
-              value={unitMode}
-              onChange={(e) =>
-                setUnitMode(e.target.value as QuantityUnitMode)
-              }
+              value={selectedUnit}
+              onChange={(e) => setSelectedUnit(e.target.value)}
               className="min-w-[8rem] flex-1 rounded-xl border border-border bg-bg px-3 py-3 text-base text-text outline-none focus:border-accent"
               aria-label="Unit"
             >
-              <option value="serving">serving(s)</option>
-              <option value="food">{food.servingUnit}</option>
+              {options.map((unit) => (
+                <option key={unit} value={unit}>
+                  {optionLabel(unit)}
+                </option>
+              ))}
             </select>
           </div>
-          <p className="mt-2 text-xs text-text-muted">
-            {unitMode === "serving"
-              ? `Enter how many servings (${formatNutrient(food.servingQty)} ${food.servingUnit} each).`
-              : `Enter amount in ${food.servingUnit} (1 serving = ${formatNutrient(food.servingQty)} ${food.servingUnit}).`}
-          </p>
+          <p className="mt-2 text-xs text-text-muted">{helper}</p>
         </label>
 
         {preview ? (
@@ -166,7 +222,7 @@ export function ServingsStep({
       </div>
 
       <div className="border-t border-border p-4">
-        {pickerOpen ? (
+        {needsMeal && pickerOpen ? (
           <div
             className="mb-3 overflow-hidden rounded-2xl border border-border bg-bg-elevated"
             role="listbox"
@@ -182,7 +238,7 @@ export function ServingsStep({
                   aria-selected={selected}
                   disabled={pending}
                   className="flex w-full items-center justify-between border-b border-border px-4 py-3.5 text-left text-base font-medium text-text transition last:border-b-0 hover:bg-surface-hover disabled:opacity-50"
-                  onClick={() => confirmMeal(optionMeal)}
+                  onClick={() => submit(optionMeal)}
                 >
                   <span>{label}</span>
                   {selected ? (
@@ -198,14 +254,18 @@ export function ServingsStep({
         <button
           type="button"
           disabled={!valid || pending || !preview}
-          aria-expanded={pickerOpen}
-          className="w-full rounded-2xl bg-accent py-3.5 text-center text-base font-semibold text-bg transition hover:bg-accent-hover disabled:opacity-50"
+          aria-expanded={needsMeal ? pickerOpen : undefined}
+          className="w-full rounded-2xl bg-accent py-3.5 text-center text-base font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50"
           onClick={() => {
             if (!valid) return;
-            setPickerOpen((open) => !open);
+            if (needsMeal) {
+              setPickerOpen((open) => !open);
+              return;
+            }
+            submit();
           }}
         >
-          {pending ? "Adding…" : "Add"}
+          {pending ? "Adding…" : buttonLabel}
         </button>
       </div>
     </div>

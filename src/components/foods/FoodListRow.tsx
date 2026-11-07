@@ -8,6 +8,7 @@ import {
   toggleFoodFavoriteAction,
 } from "@/app/foods/actions";
 import { SwipeToDeleteRow } from "@/components/ui/SwipeToDeleteRow";
+import { FoodSource } from "@/generated/prisma/enums";
 import { formatNutrient } from "@/lib/nutrients";
 import type { FoodListItem } from "@/lib/food-shared";
 
@@ -36,18 +37,29 @@ export function FoodListRow({ food }: FoodListRowProps) {
         }}
       >
         <div className="relative bg-surface">
-          <Link
-            href={`/foods/${food.id}/edit`}
-            className="block min-w-0 px-4 py-3 pr-14 transition hover:bg-surface-hover"
-          >
-            <div className="truncate font-medium text-text">{food.name}</div>
-            {food.brand ? (
-              <div className="truncate text-xs text-text-muted">{food.brand}</div>
-            ) : null}
-            <div className="mt-0.5 text-sm text-text-muted">
-              {serving} · {formatNutrient(food.calories)} kcal
+          {food.source === FoodSource.recipe ? (
+            <div className="min-w-0 px-4 py-3 pr-14">
+              <div className="truncate font-medium text-text">{food.name}</div>
+              <div className="mt-0.5 text-sm text-text-muted">
+                Recipe · {serving} · {formatNutrient(food.calories)} kcal
+              </div>
             </div>
-          </Link>
+          ) : (
+            <Link
+              href={`/foods/${food.id}/edit`}
+              className="block min-w-0 px-4 py-3 pr-14 transition hover:bg-surface-hover"
+            >
+              <div className="truncate font-medium text-text">{food.name}</div>
+              {food.brand ? (
+                <div className="truncate text-xs text-text-muted">
+                  {food.brand}
+                </div>
+              ) : null}
+              <div className="mt-0.5 text-sm text-text-muted">
+                {serving} · {formatNutrient(food.calories)} kcal
+              </div>
+            </Link>
+          )}
           <button
             type="button"
             disabled={pending}

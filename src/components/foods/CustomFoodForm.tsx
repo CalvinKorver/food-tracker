@@ -7,6 +7,10 @@ import {
   deleteCustomFoodAction,
   updateCustomFoodAction,
 } from "@/app/foods/actions";
+import {
+  NutritionConfirmation,
+  type ConfirmationNutrients,
+} from "@/components/foods/NutritionConfirmation";
 import type { CustomFoodFormValues } from "@/lib/custom-food-form";
 
 type CustomFoodFormProps = {
@@ -49,10 +53,15 @@ function Field({
         min={min}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-text outline-none focus:border-accent"
+        className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-base text-text outline-none focus:border-accent"
       />
     </label>
   );
+}
+
+function num(raw: FormDataEntryValue | null): number {
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function CustomFoodForm({
@@ -65,17 +74,74 @@ export function CustomFoodForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [deleting, startDelete] = useTransition();
+  const [review, setReview] = useState<{
+    formData: FormData;
+    nutrients: ConfirmationNutrients;
+    title: string;
+    servingLabel: string;
+  } | null>(null);
+
+  if (mode === "create" && review) {
+    return (
+      <div className="min-h-[70dvh]">
+        <NutritionConfirmation
+          title={review.title}
+          nutrients={review.nutrients}
+          servingOptions={[
+            {
+              id: "serving",
+              label: review.servingLabel,
+              multiplier: 1,
+            },
+          ]}
+          saveLabel="Create food"
+          pending={pending}
+          error={error}
+          onBack={() => {
+            setReview(null);
+            setError(null);
+          }}
+          onSave={() => {
+            setError(null);
+            startTransition(async () => {
+              const result = await createCustomFoodAction(review.formData);
+              if (result && !result.ok) {
+                setError(result.error);
+              }
+            });
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <form
       className="flex flex-col gap-4"
       action={(formData) => {
         setError(null);
+        if (mode === "create") {
+          const title = String(formData.get("name") ?? "").trim() || "Custom food";
+          const qty = num(formData.get("servingQty"));
+          const unit = String(formData.get("servingUnit") ?? "").trim() || "serving";
+          setReview({
+            formData,
+            title,
+            servingLabel: `1 serving — ${qty} ${unit}`,
+            nutrients: {
+              calories: num(formData.get("calories")),
+              proteinG: num(formData.get("proteinG")),
+              carbsG: num(formData.get("carbsG")),
+              fatG: num(formData.get("fatG")),
+              fiberG: num(formData.get("fiberG")),
+              sugarG: num(formData.get("sugarG")),
+              sodiumMg: num(formData.get("sodiumMg")),
+            },
+          });
+          return;
+        }
         startTransition(async () => {
-          const result =
-            mode === "create"
-              ? await createCustomFoodAction(formData)
-              : await updateCustomFoodAction(formData);
+          const result = await updateCustomFoodAction(formData);
           if (result && !result.ok) {
             setError(result.error);
           }
@@ -207,12 +273,12 @@ export function CustomFoodForm({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-2xl bg-accent py-3.5 text-base font-semibold text-bg transition hover:bg-accent-hover disabled:opacity-50"
+        className="w-full rounded-2xl bg-accent py-3.5 text-base font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50"
       >
         {pending
           ? "Saving…"
           : mode === "create"
-            ? "Create food"
+            ? "Next"
             : "Save changes"}
       </button>
 

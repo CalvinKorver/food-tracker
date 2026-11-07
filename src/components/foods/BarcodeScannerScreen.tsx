@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { lookupBarcodeAction } from "@/app/diary/actions";
 import { getBarcodeDetector } from "@/lib/barcode-detect";
 import type { FoodListItem } from "@/lib/food-shared";
@@ -229,9 +230,10 @@ export function BarcodeScannerScreen({
             ? "Starting camera…"
             : "Place barcode in the frame to scan";
 
-  return (
+  // Portal so nested sheets (FoodPicker) can't trap this under their stacking context.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex justify-center bg-black"
+      className="fixed inset-0 z-[80] flex justify-center bg-black"
       role="dialog"
       aria-modal="true"
       aria-labelledby="barcode-scanner-title"
@@ -308,6 +310,7 @@ export function BarcodeScannerScreen({
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

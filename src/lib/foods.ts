@@ -33,6 +33,7 @@ const FOOD_SELECT = {
   fiberG: true,
   sugarG: true,
   sodiumMg: true,
+  servingsPerRecipe: true,
 } as const;
 
 async function favoriteIdsFor(userId: string): Promise<Set<string>> {
@@ -273,6 +274,7 @@ export async function createFoodEntry(input: {
   meal: MealType;
   quantity: number;
   unitMode: QuantityUnitMode;
+  selectedUnit?: string;
 }) {
   const food = await prisma.food.findFirst({
     where: {
@@ -285,12 +287,27 @@ export async function createFoodEntry(input: {
     throw new Error("Food not found");
   }
 
+  const selectedUnit =
+    input.unitMode === "food"
+      ? (input.selectedUnit ?? food.servingUnit)
+      : undefined;
   const s = quantityMultiplier(
     input.quantity,
     input.unitMode,
     food.servingQty,
+    food.servingsPerRecipe,
+    input.unitMode === "food"
+      ? {
+          foodServingUnit: food.servingUnit,
+          selectedUnit,
+        }
+      : undefined,
   );
-  const quantityUnit = quantityUnitFromMode(input.unitMode, food.servingUnit);
+  const quantityUnit = quantityUnitFromMode(
+    input.unitMode,
+    food.servingUnit,
+    selectedUnit,
+  );
 
   return prisma.foodEntry.create({
     data: {

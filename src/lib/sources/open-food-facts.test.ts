@@ -80,6 +80,36 @@ describe("normalizeOffProduct", () => {
       sodiumMg: 0,
     });
   });
+
+  it("prefers serving_quantity_unit over serving_size text", () => {
+    const food = normalizeOffProduct({
+      code: "2",
+      product_name: "Cottage Cheese",
+      serving_quantity: 110,
+      serving_quantity_unit: "g",
+      serving_size: "110 portion",
+      nutriments: { "energy-kcal_serving": 80 },
+    });
+    expect(food).toMatchObject({
+      servingQty: 110,
+      servingUnit: "g",
+      calories: 80,
+    });
+  });
+
+  it("normalizes unit aliases from serving_quantity_unit", () => {
+    const food = normalizeOffProduct({
+      code: "3",
+      product_name: "Milk",
+      serving_quantity: 240,
+      serving_quantity_unit: "milliliters",
+      nutriments: { "energy-kcal_serving": 120 },
+    });
+    expect(food).toMatchObject({
+      servingQty: 240,
+      servingUnit: "ml",
+    });
+  });
 });
 
 describe("fetchOffProductByBarcode", () => {
