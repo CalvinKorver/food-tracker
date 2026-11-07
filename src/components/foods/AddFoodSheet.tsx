@@ -126,12 +126,12 @@ export function AddFoodSheet({
               }
               setSelected(null);
             }}
-            onConfirm={async ({ quantity, unitMode }) => {
+            onConfirm={async ({ quantity, unitMode, meal: chosenMeal }) => {
               const result = await addFoodEntryAction({
                 foodId: selected.id,
                 dateKey,
                 loggedOnKey,
-                meal,
+                meal: chosenMeal,
                 quantity,
                 unitMode,
               });

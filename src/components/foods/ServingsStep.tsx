@@ -2,12 +2,19 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { formatNutrient, netCarbs } from "@/lib/nutrients";
-import { mealLabel, type FoodListItem } from "@/lib/food-shared";
+import { type FoodListItem } from "@/lib/food-shared";
 import {
   quantityMultiplier,
   type QuantityUnitMode,
 } from "@/lib/quantity";
-import type { MealType } from "@/generated/prisma/client";
+import { MealType } from "@/generated/prisma/client";
+
+const MEAL_OPTIONS: { meal: MealType; label: string }[] = [
+  { meal: MealType.breakfast, label: "Breakfast" },
+  { meal: MealType.lunch, label: "Lunch" },
+  { meal: MealType.dinner, label: "Dinner" },
+  { meal: MealType.snack, label: "Snack" },
+];
 
 type ServingsStepProps = {
   food: FoodListItem;
@@ -16,6 +23,7 @@ type ServingsStepProps = {
   onConfirm: (input: {
     quantity: number;
     unitMode: QuantityUnitMode;
+    meal: MealType;
   }) => Promise<void>;
 };
 
@@ -27,6 +35,7 @@ export function ServingsStep({
 }: ServingsStepProps) {
   const [quantity, setQuantity] = useState("1");
   const [unitMode, setUnitMode] = useState<QuantityUnitMode>("serving");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +63,19 @@ export function ServingsStep({
       return null;
     }
   }, [food, amount, unitMode, valid]);
+
+  function confirmMeal(chosenMeal: MealType) {
+    if (!valid) return;
+    setError(null);
+    setPickerOpen(false);
+    startTransition(async () => {
+      try {
+        await onConfirm({ quantity: amount, unitMode, meal: chosenMeal });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to add");
+      }
+    });
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -144,23 +166,46 @@ export function ServingsStep({
       </div>
 
       <div className="border-t border-border p-4">
+        {pickerOpen ? (
+          <div
+            className="mb-3 overflow-hidden rounded-2xl border border-border bg-bg-elevated"
+            role="listbox"
+            aria-label="Choose meal"
+          >
+            {MEAL_OPTIONS.map(({ meal: optionMeal, label }) => {
+              const selected = optionMeal === meal;
+              return (
+                <button
+                  key={optionMeal}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  disabled={pending}
+                  className="flex w-full items-center justify-between border-b border-border px-4 py-3.5 text-left text-base font-medium text-text transition last:border-b-0 hover:bg-surface-hover disabled:opacity-50"
+                  onClick={() => confirmMeal(optionMeal)}
+                >
+                  <span>{label}</span>
+                  {selected ? (
+                    <span className="text-sm text-accent" aria-hidden>
+                      ●
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         <button
           type="button"
           disabled={!valid || pending || !preview}
+          aria-expanded={pickerOpen}
           className="w-full rounded-2xl bg-accent py-3.5 text-center text-base font-semibold text-bg transition hover:bg-accent-hover disabled:opacity-50"
           onClick={() => {
             if (!valid) return;
-            setError(null);
-            startTransition(async () => {
-              try {
-                await onConfirm({ quantity: amount, unitMode });
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to add");
-              }
-            });
+            setPickerOpen((open) => !open);
           }}
         >
-          {pending ? "Adding…" : `Add to ${mealLabel(meal)}`}
+          {pending ? "Adding…" : "Add"}
         </button>
       </div>
     </div>
