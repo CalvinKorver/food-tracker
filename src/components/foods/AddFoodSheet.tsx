@@ -158,7 +158,7 @@ export function AddFoodSheet({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search foods…"
-                  className="w-full rounded-full border border-border bg-surface py-2.5 pl-4 pr-10 text-sm text-text outline-none placeholder:text-text-muted focus:border-accent"
+                  className="w-full rounded-full border border-border bg-surface py-2.5 pl-4 pr-10 text-base text-text outline-none placeholder:text-text-muted focus:border-accent"
                 />
               </div>
               <button

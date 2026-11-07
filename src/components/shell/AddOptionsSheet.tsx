@@ -161,22 +161,22 @@ export function AddOptionsSheet({
             <AddOptionTile
               label="Search Food"
               icon={<SearchIcon />}
-              color="#c47a12"
-              background="rgba(245, 166, 35, 0.18)"
+              color="#ff9f0a"
+              background="rgba(255, 159, 10, 0.18)"
               onClick={() => pick(onSearchFood)}
             />
             <AddOptionTile
               label="Scan Barcode"
               icon={<BarcodeIcon />}
-              color="#2a9d8f"
-              background="rgba(46, 196, 182, 0.18)"
+              color="#30d158"
+              background="rgba(48, 209, 88, 0.18)"
               onClick={() => pick(onScanBarcode)}
             />
             <AddOptionTile
               label="Scan Label"
               icon={<CameraIcon />}
-              color="#4a90d9"
-              background="rgba(74, 144, 217, 0.18)"
+              color="#0a84ff"
+              background="rgba(10, 132, 255, 0.18)"
               onClick={() => pick(onScanLabel)}
             />
           </div>

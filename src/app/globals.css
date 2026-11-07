@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #1a1c2c;
-  --bg-elevated: #1f2233;
-  --surface: #252836;
-  --surface-hover: #2c3044;
-  --border: #32364a;
-  --text: #f4f5f7;
-  --text-muted: #9aa0b4;
-  --accent: #f5a623;
-  --accent-hover: #ffb84d;
-  --accent-teal: #2ec4b6;
-  --danger: #e85d5d;
+  --bg: #000000;
+  --bg-elevated: #1c1c1e;
+  --surface: #1c1c1e;
+  --surface-hover: #2c2c2e;
+  --border: #2c2c2e;
+  --text: #ffffff;
+  --text-muted: #8e8e93;
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-teal: #30d158;
+  --danger: #ff453a;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    system-ui, sans-serif;
   --nav-height: 4.5rem;
   --app-max-width: 28rem;
 }
@@ -28,7 +30,7 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-teal: var(--accent-teal);
   --color-danger: var(--danger);
-  --font-sans: var(--font-dm-sans);
+  --font-sans: var(--font-ui);
 }
 
 * {
@@ -44,18 +46,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-button {
-  font: inherit;
-  color: inherit;
 }
 
 /* Add Food sheet View Transitions */

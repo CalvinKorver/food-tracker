@@ -24,16 +24,12 @@ function isActive(pathname: string, href: string) {
 }
 
 function NavIcon({ icon, active }: { icon: NavItem["icon"]; active: boolean }) {
-  const stroke = active ? "var(--accent)" : "var(--text-muted)";
   const common = {
-    width: 22,
-    height: 22,
+    width: 26,
+    height: 26,
     viewBox: "0 0 24 24",
-    fill: "none",
-    stroke,
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
+    fill: active ? "var(--accent-teal)" : "var(--text-muted)",
+    fillRule: "evenodd" as const,
     "aria-hidden": true as const,
   };
 
@@ -41,34 +37,28 @@ function NavIcon({ icon, active }: { icon: NavItem["icon"]; active: boolean }) {
     case "discover":
       return (
         <svg {...common}>
-          <path d="M4 19V5" />
-          <path d="M4 19h16" />
-          <path d="M8 15v4" />
-          <path d="M12 11v8" />
-          <path d="M16 8v11" />
+          <rect x="3" y="13" width="4.5" height="8" rx="1.2" />
+          <rect x="9.75" y="8" width="4.5" height="13" rx="1.2" />
+          <rect x="16.5" y="3" width="4.5" height="18" rx="1.2" />
         </svg>
       );
     case "diary":
       return (
         <svg {...common}>
-          <path d="M6 4h11a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z" />
-          <path d="M9 8h6" />
-          <path d="M9 12h6" />
+          <path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM8.5 6.5v1.6h7V6.5zM8.5 10.5v1.6h7v-1.6zM8.5 14.5v1.6h4.5v-1.6z" />
         </svg>
       );
     case "foods":
       return (
         <svg {...common}>
-          <path d="M12 3c-2.5 3-4 5.5-4 8a4 4 0 0 0 8 0c0-2.5-1.5-5-4-8z" />
-          <path d="M12 15v6" />
+          <path d="M12 7.2c-1-.9-2.6-1.4-4-.9-2.6.9-3.6 4-2.9 7.1.7 3.1 2.8 6.1 4.9 6.1.8 0 1.3-.4 2-.4s1.2.4 2 .4c2.1 0 4.2-3 4.9-6.1.7-3.1-.3-6.2-2.9-7.1-1.4-.5-3 0-4 .9z" />
+          <path d="M12.2 6.3c0-2 1.3-3.6 3.4-3.9-.1 2-1.4 3.7-3.4 3.9z" />
         </svg>
       );
     case "more":
       return (
         <svg {...common}>
-          <circle cx="6" cy="12" r="1.4" fill={stroke} stroke="none" />
-          <circle cx="12" cy="12" r="1.4" fill={stroke} stroke="none" />
-          <circle cx="18" cy="12" r="1.4" fill={stroke} stroke="none" />
+          <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zM7 10.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM12 10.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM17 10.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z" />
         </svg>
       );
   }
@@ -85,7 +75,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 z-40 w-full max-w-[var(--app-max-width)] -translate-x-1/2 border-t border-border bg-bg-elevated/95 backdrop-blur-md"
+      className="fixed bottom-0 left-1/2 z-40 w-full max-w-[var(--app-max-width)] -translate-x-1/2 border-t border-white/5 bg-surface"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Primary"
     >
@@ -96,12 +86,14 @@ export function BottomNav({ onAdd }: BottomNavProps) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center gap-1 py-2"
+              className="flex flex-col items-center gap-0.5 pt-1.5"
             >
               <NavIcon icon={item.icon} active={active} />
               <span
-                className="text-[10px] font-medium"
-                style={{ color: active ? "var(--accent)" : "var(--text-muted)" }}
+                className="text-[11px] font-medium"
+                style={{
+                  color: active ? "var(--accent-teal)" : "var(--text-muted)",
+                }}
               >
                 {item.label}
               </span>
@@ -114,7 +106,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
             type="button"
             onClick={onAdd}
             aria-label="Add food"
-            className="flex h-14 w-14 -translate-y-3 items-center justify-center rounded-full bg-accent text-bg shadow-[0_8px_20px_rgba(245,166,35,0.35)] transition hover:bg-accent-hover active:scale-95"
+            className="flex h-14 w-14 -translate-y-3 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-hover active:scale-95"
           >
             <svg
               width="28"
@@ -137,12 +129,14 @@ export function BottomNav({ onAdd }: BottomNavProps) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center gap-1 py-2"
+              className="flex flex-col items-center gap-0.5 pt-1.5"
             >
               <NavIcon icon={item.icon} active={active} />
               <span
-                className="text-[10px] font-medium"
-                style={{ color: active ? "var(--accent)" : "var(--text-muted)" }}
+                className="text-[11px] font-medium"
+                style={{
+                  color: active ? "var(--accent-teal)" : "var(--text-muted)",
+                }}
               >
                 {item.label}
               </span>
