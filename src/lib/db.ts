@@ -1,6 +1,6 @@
 /**
  * Prisma client singleton.
- * Requires DATABASE_URL pointing at Docker Postgres (see docker-compose.yml).
+ * Lazy so `next build` can import modules without DATABASE_URL.
  */
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
@@ -19,8 +19,16 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const prisma: PrismaClient =
+  globalForPrisma.prisma ??
+  new Proxy({} as PrismaClient, {
+    get(_target, prop, receiver) {
+      const client = (globalForPrisma.prisma ??= createPrismaClient());
+      const value = Reflect.get(client, prop, receiver);
+      return typeof value === "function" ? value.bind(client) : value;
+    },
+  });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  // Keep the proxy; first real use fills globalForPrisma.prisma.
 }

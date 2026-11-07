@@ -10,6 +10,8 @@ const dmSans = localFont({
   weight: "100 1000",
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Food Tracker",
   description: "Track meals, calories, and macros day by day.",
