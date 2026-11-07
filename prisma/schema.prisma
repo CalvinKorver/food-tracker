@@ -13,6 +13,7 @@ enum FoodSource {
   barcode
   ocr
   recipe
+  usda_fdc
 }
 
 enum MealType {

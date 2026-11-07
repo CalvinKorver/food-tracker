@@ -13,6 +13,7 @@ const oatmeal = {
   servingQty: 40,
   servingUnit: "g",
   servingsPerRecipe: null,
+  portions: [] as { label: string; grams: number }[],
 };
 
 const milk = {
@@ -27,6 +28,7 @@ const milk = {
   servingQty: 240,
   servingUnit: "ml",
   servingsPerRecipe: null,
+  portions: [] as { label: string; grams: number }[],
 };
 
 describe("computeRecipeTotals", () => {

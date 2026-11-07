@@ -44,6 +44,24 @@ describe("quantityMultiplier", () => {
     ).toThrow(/cannot convert/i);
   });
 
+  it("scales household portions against gram serving", () => {
+    // 1 large = 50g; serving = 100g → 0.5 servings
+    expect(
+      quantityMultiplier(1, "food", 100, null, {
+        foodServingUnit: "g",
+        selectedUnit: "1 large",
+        portions: [{ label: "1 large", grams: 50 }],
+      }),
+    ).toBe(0.5);
+    expect(
+      quantityMultiplier(2, "food", 100, null, {
+        foodServingUnit: "g",
+        selectedUnit: "1 large",
+        portions: [{ label: "1 large", grams: 50 }],
+      }),
+    ).toBe(1);
+  });
+
   it("rejects quantity <= 0", () => {
     expect(() => quantityMultiplier(0, "serving", 100)).toThrow(
       /greater than 0/i,
@@ -91,5 +109,10 @@ describe("formatQuantityLabel", () => {
   it("formats recipe units", () => {
     expect(formatQuantityLabel(1, "recipe")).toBe("1 recipe");
     expect(formatQuantityLabel(2, "recipe")).toBe("2 recipes");
+  });
+
+  it("formats portion labels", () => {
+    expect(formatQuantityLabel(1, "1 large")).toBe("1 large");
+    expect(formatQuantityLabel(2, "1 large")).toBe("2 × 1 large");
   });
 });

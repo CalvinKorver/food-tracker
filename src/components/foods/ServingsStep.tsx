@@ -11,6 +11,7 @@ import {
   SERVING_UNIT_KEY,
   type QuantityUnitMode,
 } from "@/lib/quantity";
+import { toggleFavoriteAction } from "@/app/diary/actions";
 import { MealType } from "@/generated/prisma/enums";
 
 const MEAL_OPTIONS: { meal: MealType; label: string }[] = [
@@ -44,6 +45,11 @@ function unitOptionsFor(food: FoodListItem): string[] {
   } else if (native && normalizeUnitKey(native) !== SERVING_UNIT_KEY) {
     options.push(native);
   }
+  for (const portion of food.portions) {
+    if (portion.label && portion.grams > 0 && !options.includes(portion.label)) {
+      options.push(portion.label);
+    }
+  }
   if (food.servingsPerRecipe != null && food.servingsPerRecipe > 0) {
     options.push(RECIPE_UNIT_KEY);
   }
@@ -74,7 +80,10 @@ export function ServingsStep({
   const [selectedUnit, setSelectedUnit] = useState(options[0] ?? SERVING_UNIT_KEY);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [, startFavoriteTransition] = useTransition();
+  const [isFavorite, setIsFavorite] = useState(food.isFavorite);
   const [error, setError] = useState<string | null>(null);
+  const canFavorite = Boolean(food.id);
 
   const amount = Number(quantity);
   const valid = Number.isFinite(amount) && amount > 0;
@@ -94,6 +103,7 @@ export function ServingsStep({
           ? {
               foodServingUnit: food.servingUnit,
               selectedUnit,
+              portions: food.portions,
             }
           : undefined,
       );
@@ -129,12 +139,33 @@ export function ServingsStep({
     });
   }
 
+  function toggleStar() {
+    if (!canFavorite) return;
+    const previous = isFavorite;
+    setIsFavorite(!previous);
+    startFavoriteTransition(async () => {
+      try {
+        const result = await toggleFavoriteAction(food.id);
+        if (result.ok) {
+          setIsFavorite(result.isFavorite);
+        } else {
+          setIsFavorite(previous);
+        }
+      } catch {
+        setIsFavorite(previous);
+      }
+    });
+  }
+
+  const selectedPortion = food.portions.find((p) => p.label === selectedUnit);
   const helper =
     unitMode === "serving"
       ? `Enter how many servings (${formatNutrient(food.servingQty)} ${food.servingUnit} each).`
       : unitMode === "recipe"
         ? `Enter how many full recipes (${formatNutrient(food.servingsPerRecipe ?? 0)} servings each).`
-        : `Enter amount in ${selectedUnit} (1 serving = ${formatNutrient(food.servingQty)} ${food.servingUnit}).`;
+        : selectedPortion
+          ? `Enter how many (${formatNutrient(selectedPortion.grams)} g each).`
+          : `Enter amount in ${selectedUnit} (1 serving = ${formatNutrient(food.servingQty)} ${food.servingUnit}).`;
 
   return (
     <div className="flex h-full flex-col">
@@ -153,6 +184,22 @@ export function ServingsStep({
             1 serving = {formatNutrient(food.servingQty)} {food.servingUnit}
           </p>
         </div>
+        {canFavorite ? (
+          <button
+            type="button"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg transition hover:bg-surface-hover"
+            aria-label={isFavorite ? "Remove favorite" : "Add favorite"}
+            onClick={toggleStar}
+          >
+            <span
+              style={{
+                color: isFavorite ? "var(--accent)" : "var(--text-muted)",
+              }}
+            >
+              {isFavorite ? "★" : "☆"}
+            </span>
+          </button>
+        ) : null}
       </header>
 
       <div className="flex flex-1 flex-col gap-6 px-4 py-6">

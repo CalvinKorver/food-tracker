@@ -12,11 +12,15 @@ import { BarcodeScannerScreen } from "@/components/foods/BarcodeScannerScreen";
 import { BarcodeIcon } from "@/components/icons/BarcodeIcon";
 import {
   searchCatalogAction,
+  searchOffCatalogAction,
   selectCatalogFoodAction,
+  selectUsdaFoodAction,
   toggleFavoriteAction,
-  type CatalogSearchHit,
+  type OffSearchHit,
+  type UsdaSearchHit,
 } from "@/app/diary/actions";
 import { type AddFoodTab, type FoodListItem } from "@/lib/food-shared";
+import { formatNutrient } from "@/lib/nutrients";
 
 type FoodPickerProps = {
   initialRecents: FoodListItem[];
@@ -52,12 +56,17 @@ export function FoodPicker({
   const [favorites, setFavorites] = useState(initialFavorites);
   const [allFoods, setAllFoods] = useState(initialAll);
   const [scanOpen, setScanOpen] = useState(false);
-  const [remoteHits, setRemoteHits] = useState<CatalogSearchHit[]>([]);
-  const [remoteStatus, setRemoteStatus] = useState<
+  const [usdaHits, setUsdaHits] = useState<UsdaSearchHit[]>([]);
+  const [usdaStatus, setUsdaStatus] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
-  const [remoteError, setRemoteError] = useState<string | null>(null);
-  const [selectingBarcode, setSelectingBarcode] = useState<string | null>(null);
+  const [usdaError, setUsdaError] = useState<string | null>(null);
+  const [offHits, setOffHits] = useState<OffSearchHit[]>([]);
+  const [offStatus, setOffStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [offError, setOffError] = useState<string | null>(null);
+  const [selectingKey, setSelectingKey] = useState<string | null>(null);
   const [, startFavoriteTransition] = useTransition();
 
   const lists = useMemo(
@@ -85,28 +94,37 @@ export function FoodPicker({
 
   useEffect(() => {
     if (trimmedQuery.length < MIN_REMOTE_QUERY) {
-      setRemoteHits([]);
-      setRemoteStatus("idle");
-      setRemoteError(null);
+      setUsdaHits([]);
+      setUsdaStatus("idle");
+      setUsdaError(null);
+      setOffHits([]);
+      setOffStatus("idle");
+      setOffError(null);
       return;
     }
 
     let cancelled = false;
-    setRemoteStatus("loading");
-    setRemoteError(null);
+    setUsdaStatus("loading");
+    setUsdaError(null);
+    setOffHits([]);
+    setOffStatus("idle");
+    setOffError(null);
 
     const timer = window.setTimeout(() => {
       void (async () => {
         const result = await searchCatalogAction(trimmedQuery);
         if (cancelled) return;
         if (!result.ok) {
-          setRemoteHits([]);
-          setRemoteStatus("error");
-          setRemoteError(result.error);
+          setUsdaHits([]);
+          setUsdaStatus("error");
+          setUsdaError(result.error);
           return;
         }
-        setRemoteHits(result.foods);
-        setRemoteStatus("ready");
+        setUsdaHits(result.foods);
+        setUsdaStatus("ready");
+        if (result.foods.length === 0) {
+          void runOffSearch(trimmedQuery, () => cancelled);
+        }
       })();
     }, SEARCH_DEBOUNCE_MS);
 
@@ -115,6 +133,24 @@ export function FoodPicker({
       window.clearTimeout(timer);
     };
   }, [trimmedQuery]);
+
+  async function runOffSearch(
+    q: string,
+    isCancelled?: () => boolean,
+  ) {
+    setOffStatus("loading");
+    setOffError(null);
+    const result = await searchOffCatalogAction(q);
+    if (isCancelled?.()) return;
+    if (!result.ok) {
+      setOffHits([]);
+      setOffStatus("error");
+      setOffError(result.error);
+      return;
+    }
+    setOffHits(result.foods);
+    setOffStatus("ready");
+  }
 
   const emptyCopy =
     tab === "recents"
@@ -147,20 +183,42 @@ export function FoodPicker({
     });
   }
 
-  async function pickRemote(hit: CatalogSearchHit) {
-    setSelectingBarcode(hit.barcode);
-    setRemoteError(null);
+  async function pickUsda(hit: UsdaSearchHit) {
+    setSelectingKey(`usda:${hit.fdcId}`);
+    setUsdaError(null);
     try {
-      const result = await selectCatalogFoodAction(hit.barcode);
+      const result = await selectUsdaFoodAction(hit.fdcId);
       if (!result.ok) {
-        setRemoteError(result.error);
+        setUsdaError(result.error);
         return;
       }
       onSelect(result.food);
     } finally {
-      setSelectingBarcode(null);
+      setSelectingKey(null);
     }
   }
+
+  async function pickOff(hit: OffSearchHit) {
+    setSelectingKey(`off:${hit.barcode}`);
+    setOffError(null);
+    try {
+      const result = await selectCatalogFoodAction(hit.barcode);
+      if (!result.ok) {
+        setOffError(result.error);
+        return;
+      }
+      onSelect(result.food);
+    } finally {
+      setSelectingKey(null);
+    }
+  }
+
+  const showOffSection = offStatus !== "idle";
+  const showOffButton =
+    showRemote &&
+    usdaStatus === "ready" &&
+    offStatus === "idle" &&
+    usdaHits.length > 0;
 
   return (
     <>
@@ -248,49 +306,114 @@ export function FoodPicker({
         {showRemote ? (
           <>
             <div className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Open Food Facts
+              USDA
             </div>
-            {remoteStatus === "loading" ? (
+            {usdaStatus === "loading" ? (
               <p className="px-4 py-6 text-center text-sm text-text-muted">
                 Searching…
               </p>
             ) : null}
-            {remoteStatus === "error" ? (
+            {usdaStatus === "error" ? (
               <p className="px-4 py-6 text-center text-sm text-danger">
-                {remoteError ?? "Search failed"}
+                {usdaError ?? "Search failed"}
               </p>
             ) : null}
-            {remoteStatus === "ready" && remoteHits.length === 0 ? (
+            {usdaStatus === "ready" && usdaHits.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-text-muted">
-                No catalog matches
+                No USDA matches
               </p>
             ) : null}
-            {remoteStatus === "ready"
-              ? remoteHits.map((hit) => (
+            {usdaStatus === "ready"
+              ? usdaHits.map((hit) => (
                   <FoodResultRow
-                    key={hit.barcode}
+                    key={hit.fdcId}
                     food={{
                       name: hit.name,
                       brand: hit.brand,
                       isFavorite: false,
                     }}
-                    badge="OFF"
-                    detail="Tap to load nutrition"
+                    badge="USDA"
+                    detail={
+                      hit.caloriesPer100g != null
+                        ? `100 g · ${formatNutrient(hit.caloriesPer100g)} kcal`
+                        : "Tap to load nutrition"
+                    }
                     onSelect={() => {
-                      if (selectingBarcode) return;
-                      void pickRemote(hit);
+                      if (selectingKey) return;
+                      void pickUsda(hit);
                     }}
                   />
                 ))
               : null}
-            {selectingBarcode ? (
-              <p className="px-4 py-3 text-center text-sm text-text-muted">
-                Opening…
+            {usdaError && usdaStatus === "ready" ? (
+              <p className="px-4 py-2 text-center text-sm text-danger">
+                {usdaError}
               </p>
             ) : null}
-            {remoteError && remoteStatus === "ready" ? (
-              <p className="px-4 py-2 text-center text-sm text-danger">
-                {remoteError}
+
+            {showOffButton ? (
+              <div className="px-4 py-3">
+                <button
+                  type="button"
+                  className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-text transition hover:bg-surface-hover"
+                  onClick={() => {
+                    void runOffSearch(trimmedQuery);
+                  }}
+                >
+                  Search packaged foods (Open Food Facts)
+                </button>
+              </div>
+            ) : null}
+
+            {showOffSection ? (
+              <>
+                <div className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Open Food Facts
+                </div>
+                {offStatus === "loading" ? (
+                  <p className="px-4 py-6 text-center text-sm text-text-muted">
+                    Searching packaged foods…
+                  </p>
+                ) : null}
+                {offStatus === "error" ? (
+                  <p className="px-4 py-6 text-center text-sm text-danger">
+                    {offError ?? "Search failed"}
+                  </p>
+                ) : null}
+                {offStatus === "ready" && offHits.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-text-muted">
+                    No packaged matches
+                  </p>
+                ) : null}
+                {offStatus === "ready"
+                  ? offHits.map((hit) => (
+                      <FoodResultRow
+                        key={hit.barcode}
+                        food={{
+                          name: hit.name,
+                          brand: hit.brand,
+                          isFavorite: false,
+                        }}
+                        badge="OFF"
+                        detail="Tap to load nutrition"
+                        onSelect={() => {
+                          if (selectingKey) return;
+                          void pickOff(hit);
+                        }}
+                      />
+                    ))
+                  : null}
+                {offError && offStatus === "ready" ? (
+                  <p className="px-4 py-2 text-center text-sm text-danger">
+                    {offError}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+
+            {selectingKey ? (
+              <p className="px-4 py-3 text-center text-sm text-text-muted">
+                Opening…
               </p>
             ) : null}
           </>

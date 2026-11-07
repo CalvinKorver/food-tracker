@@ -28,6 +28,8 @@ export function toGrams(quantity: number, unit: string): number | null {
   return quantity * factor;
 }
 
+export type QuantityPortion = { label: string; grams: number };
+
 export function quantityMultiplier(
   quantity: number,
   unitMode: QuantityUnitMode,
@@ -36,6 +38,7 @@ export function quantityMultiplier(
   options?: {
     foodServingUnit?: string;
     selectedUnit?: string;
+    portions?: QuantityPortion[];
   },
 ): number {
   if (!(quantity > 0)) {
@@ -56,6 +59,21 @@ export function quantityMultiplier(
 
   const foodUnit = options?.foodServingUnit;
   const selected = options?.selectedUnit ?? foodUnit;
+
+  if (selected && options?.portions?.length) {
+    const portion = options.portions.find(
+      (p) => p.label === selected && p.grams > 0,
+    );
+    if (portion) {
+      const servingG =
+        foodUnit != null ? toGrams(servingQty, foodUnit) : null;
+      if (servingG == null || !(servingG > 0)) {
+        throw new Error("Cannot convert portion without a weight serving");
+      }
+      return (quantity * portion.grams) / servingG;
+    }
+  }
+
   if (
     foodUnit &&
     selected &&
@@ -101,6 +119,12 @@ export function formatQuantityLabel(
   }
   if (quantityUnit === RECIPE_UNIT_KEY) {
     return Number(quantityValue) === 1 ? "1 recipe" : `${amount} recipes`;
+  }
+  // Portion labels like "1 large" already include a count word.
+  if (/\s/.test(quantityUnit) || /^\d/.test(quantityUnit)) {
+    return Number(quantityValue) === 1
+      ? quantityUnit
+      : `${amount} × ${quantityUnit}`;
   }
   return `${amount} ${quantityUnit}`;
 }

@@ -7,6 +7,8 @@ export const USER_FOOD_SOURCES = [
   FoodSource.recipe,
 ] as const;
 
+export type FoodPortionOption = { label: string; grams: number };
+
 export type FoodListItem = {
   id: string;
   name: string;
@@ -22,6 +24,8 @@ export type FoodListItem = {
   sugarG: number;
   sodiumMg: number;
   servingsPerRecipe: number | null;
+  /** Household measures from FDC (and similar), grams relative to serving. */
+  portions: FoodPortionOption[];
   isFavorite: boolean;
 };
 
@@ -39,7 +43,26 @@ export function sourceBadge(source: FoodSource): string {
       return "OCR";
     case FoodSource.recipe:
       return "Recipe";
+    case FoodSource.usda_fdc:
+      return "USDA";
   }
+}
+
+export function portionsFromNutrientsExtra(
+  extra: unknown,
+): FoodPortionOption[] {
+  if (!extra || typeof extra !== "object") return [];
+  const raw = (extra as { portions?: unknown }).portions;
+  if (!Array.isArray(raw)) return [];
+  const out: FoodPortionOption[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const label = String((item as { label?: unknown }).label ?? "").trim();
+    const grams = Number((item as { grams?: unknown }).grams);
+    if (!label || !(grams > 0)) continue;
+    out.push({ label, grams });
+  }
+  return out;
 }
 
 export function isMealType(value: string): value is MealType {

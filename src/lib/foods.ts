@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { FoodSource, type MealType, Prisma } from "@/generated/prisma/client";
 import {
   USER_FOOD_SOURCES,
+  portionsFromNutrientsExtra,
   type AddFoodTab,
   type FoodListItem,
 } from "@/lib/food-shared";
@@ -34,7 +35,34 @@ const FOOD_SELECT = {
   sugarG: true,
   sodiumMg: true,
   servingsPerRecipe: true,
+  nutrientsExtra: true,
 } as const;
+
+type FoodRow = {
+  id: string;
+  name: string;
+  brand: string | null;
+  source: FoodSource;
+  servingQty: number;
+  servingUnit: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG: number;
+  sugarG: number;
+  sodiumMg: number;
+  servingsPerRecipe: number | null;
+  nutrientsExtra: unknown;
+};
+
+function toFoodListBase(food: FoodRow): Omit<FoodListItem, "isFavorite"> {
+  const { nutrientsExtra, ...rest } = food;
+  return {
+    ...rest,
+    portions: portionsFromNutrientsExtra(nutrientsExtra),
+  };
+}
 
 async function favoriteIdsFor(userId: string): Promise<Set<string>> {
   const rows = await prisma.favorite.findMany({
@@ -45,11 +73,11 @@ async function favoriteIdsFor(userId: string): Promise<Set<string>> {
 }
 
 function withFavoriteFlag(
-  foods: Omit<FoodListItem, "isFavorite">[],
+  foods: FoodRow[],
   favorites: Set<string>,
 ): FoodListItem[] {
   return foods.map((f) => ({
-    ...f,
+    ...toFoodListBase(f),
     isFavorite: favorites.has(f.id),
   }));
 }
@@ -102,7 +130,7 @@ export async function listAllFoods(userId: string): Promise<FoodListItem[]> {
     }),
   ]);
 
-  const byId = new Map<string, Omit<FoodListItem, "isFavorite">>();
+  const byId = new Map<string, FoodRow>();
   for (const food of customs) {
     byId.set(food.id, food);
   }
@@ -130,7 +158,7 @@ export async function getFoodListItem(
   if (!food) return null;
 
   const favorites = await favoriteIdsFor(userId);
-  return { ...food, isFavorite: favorites.has(food.id) };
+  return { ...toFoodListBase(food), isFavorite: favorites.has(food.id) };
 }
 
 export async function upsertOffFood(
@@ -191,7 +219,71 @@ export async function upsertOffFood(
   const favorites = userId
     ? await favoriteIdsFor(userId)
     : new Set<string>();
-  return { ...food, isFavorite: favorites.has(food.id) };
+  return { ...toFoodListBase(food), isFavorite: favorites.has(food.id) };
+}
+
+export async function upsertFdcFood(
+  normalized: NormalizedFood,
+  userId?: string,
+): Promise<FoodListItem> {
+  if (!normalized.externalId) {
+    throw new Error("USDA FDC food is missing an id");
+  }
+  if (normalized.source !== FoodSource.usda_fdc) {
+    throw new Error("Expected usda_fdc source");
+  }
+
+  const data = {
+    userId: null as string | null,
+    source: FoodSource.usda_fdc,
+    externalId: normalized.externalId,
+    barcode: normalized.barcode,
+    name: normalized.name,
+    brand: normalized.brand,
+    servingQty: normalized.servingQty,
+    servingUnit: normalized.servingUnit,
+    calories: normalized.calories,
+    proteinG: normalized.proteinG,
+    carbsG: normalized.carbsG,
+    fatG: normalized.fatG,
+    fiberG: normalized.fiberG,
+    sugarG: normalized.sugarG,
+    sodiumMg: normalized.sodiumMg,
+    nutrientsExtra: normalized.nutrientsExtra as Prisma.InputJsonValue,
+    sourcePayload: normalized.sourcePayload as Prisma.InputJsonValue,
+  };
+
+  const food = await prisma.food.upsert({
+    where: {
+      source_externalId: {
+        source: FoodSource.usda_fdc,
+        externalId: normalized.externalId,
+      },
+    },
+    create: data,
+    update: {
+      barcode: data.barcode,
+      name: data.name,
+      brand: data.brand,
+      servingQty: data.servingQty,
+      servingUnit: data.servingUnit,
+      calories: data.calories,
+      proteinG: data.proteinG,
+      carbsG: data.carbsG,
+      fatG: data.fatG,
+      fiberG: data.fiberG,
+      sugarG: data.sugarG,
+      sodiumMg: data.sodiumMg,
+      nutrientsExtra: data.nutrientsExtra,
+      sourcePayload: data.sourcePayload,
+    },
+    select: FOOD_SELECT,
+  });
+
+  const favorites = userId
+    ? await favoriteIdsFor(userId)
+    : new Set<string>();
+  return { ...toFoodListBase(food), isFavorite: favorites.has(food.id) };
 }
 
 export async function listRecentFoods(
@@ -206,7 +298,7 @@ export async function listRecentFoods(
   });
 
   const seen = new Set<string>();
-  const foods: Omit<FoodListItem, "isFavorite">[] = [];
+  const foods: FoodRow[] = [];
   for (const entry of entries) {
     if (seen.has(entry.foodId)) continue;
     seen.add(entry.foodId);
@@ -225,7 +317,7 @@ export async function listFavoriteFoods(
     include: { food: { select: FOOD_SELECT } },
   });
   return rows
-    .map((r) => ({ ...r.food, isFavorite: true as const }))
+    .map((r) => ({ ...toFoodListBase(r.food), isFavorite: true as const }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -300,6 +392,7 @@ export async function createFoodEntry(input: {
       ? {
           foodServingUnit: food.servingUnit,
           selectedUnit,
+          portions: portionsFromNutrientsExtra(food.nutrientsExtra),
         }
       : undefined,
   );

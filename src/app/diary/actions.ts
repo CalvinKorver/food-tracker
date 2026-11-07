@@ -7,6 +7,7 @@ import { deleteFoodEntry } from "@/lib/diary";
 import {
   createFoodEntry,
   toggleFavorite,
+  upsertFdcFood,
   upsertOffFood,
   type FoodListItem,
 } from "@/lib/foods";
@@ -89,17 +90,52 @@ export async function toggleFavoriteAction(foodId: string) {
 
 const BARCODE_RE = /^\d{8,14}$/;
 
-/** Slim OFF hit for the picker — nutrition loaded on select via product API. */
-export type CatalogSearchHit = {
+/** Slim USDA hit — portions loaded on select via FDC detail. */
+export type UsdaSearchHit = {
+  fdcId: string;
+  name: string;
+  brand: string | null;
+  caloriesPer100g: number | null;
+};
+
+/** Slim OFF hit — nutrition loaded on select via product API. */
+export type OffSearchHit = {
   barcode: string;
   name: string;
   brand: string | null;
 };
 
+/** @deprecated Prefer UsdaSearchHit / OffSearchHit */
+export type CatalogSearchHit = OffSearchHit;
+
 export async function searchCatalogAction(
   query: string,
 ): Promise<
-  | { ok: true; foods: CatalogSearchHit[] }
+  | { ok: true; foods: UsdaSearchHit[] }
+  | { ok: false; error: string }
+> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) {
+    return { ok: false as const, error: "Type at least 3 characters" };
+  }
+
+  await getCurrentUser();
+
+  try {
+    const { searchFdcFoods } = await import("@/lib/sources/usda-fdc");
+    const foods = await searchFdcFoods(trimmed);
+    return { ok: true as const, foods };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to search foods";
+    return { ok: false as const, error: message };
+  }
+}
+
+export async function searchOffCatalogAction(
+  query: string,
+): Promise<
+  | { ok: true; foods: OffSearchHit[] }
   | { ok: false; error: string }
 > {
   const trimmed = query.trim();
@@ -115,7 +151,35 @@ export async function searchCatalogAction(
     return { ok: true as const, foods };
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : "Failed to search foods";
+      err instanceof Error ? err.message : "Failed to search packaged foods";
+    return { ok: false as const, error: message };
+  }
+}
+
+export async function selectUsdaFoodAction(
+  fdcId: string,
+): Promise<
+  | { ok: true; food: FoodListItem }
+  | { ok: false; error: string }
+> {
+  const id = fdcId.trim();
+  if (!id) {
+    return { ok: false as const, error: "Invalid USDA food id" };
+  }
+
+  const user = await getCurrentUser();
+
+  try {
+    const { fetchFdcFood } = await import("@/lib/sources/usda-fdc");
+    const normalized = await fetchFdcFood(id);
+    if (!normalized) {
+      return { ok: false as const, error: "Food not found" };
+    }
+    const food = await upsertFdcFood(normalized, user.id);
+    return { ok: true as const, food };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to load USDA food";
     return { ok: false as const, error: message };
   }
 }

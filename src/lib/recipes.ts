@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { FoodSource } from "@/generated/prisma/client";
 import {
+  portionsFromNutrientsExtra,
+  type FoodPortionOption,
+} from "@/lib/food-shared";
+import {
   quantityMultiplier,
   quantityUnitFromMode,
   unitModeFromQuantityUnit,
@@ -37,6 +41,7 @@ type IngredientFood = {
   servingQty: number;
   servingUnit: string;
   servingsPerRecipe: number | null;
+  portions: FoodPortionOption[];
 };
 
 const MAX_RECOMPUTE_DEPTH = 4;
@@ -69,6 +74,7 @@ export function computeRecipeTotals(
         ? {
             foodServingUnit: item.food.servingUnit,
             selectedUnit: item.selectedUnit ?? item.food.servingUnit,
+            portions: item.food.portions,
           }
         : undefined,
     );
@@ -120,9 +126,15 @@ async function loadIngredientFoods(
       servingQty: true,
       servingUnit: true,
       servingsPerRecipe: true,
+      nutrientsExtra: true,
     },
   });
-  return new Map(foods.map((f) => [f.id, f]));
+  return new Map(
+    foods.map(({ nutrientsExtra, ...f }) => [
+      f.id,
+      { ...f, portions: portionsFromNutrientsExtra(nutrientsExtra) },
+    ]),
+  );
 }
 
 export async function createRecipe(
@@ -179,6 +191,7 @@ export async function createRecipe(
         ? {
             foodServingUnit: food.servingUnit,
             selectedUnit,
+            portions: food.portions,
           }
         : undefined,
     );
@@ -265,6 +278,7 @@ async function recomputeRecipeFood(
               servingQty: true,
               servingUnit: true,
               servingsPerRecipe: true,
+              nutrientsExtra: true,
             },
           },
         },
@@ -279,8 +293,12 @@ async function recomputeRecipeFood(
   const totals = computeRecipeTotals(
     recipe.recipeIngredients.map((row) => {
       const unitMode = unitModeFromQuantityUnit(row.quantityUnit);
+      const { nutrientsExtra, ...ingredient } = row.ingredient;
       return {
-        food: row.ingredient,
+        food: {
+          ...ingredient,
+          portions: portionsFromNutrientsExtra(nutrientsExtra),
+        },
         quantity: row.quantityValue,
         unitMode,
         selectedUnit: unitMode === "food" ? row.quantityUnit : undefined,
