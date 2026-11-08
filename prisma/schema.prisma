@@ -24,11 +24,15 @@ enum MealType {
 }
 
 model User {
-  id          String   @id @default(uuid()) @db.Uuid
-  email       String   @unique
-  displayName String   @map("display_name")
-  timezone    String   @default("America/Los_Angeles")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique
+  displayName   String   @map("display_name")
+  timezone      String   @default("America/Los_Angeles")
+  calorieGoal   Float?   @map("calorie_goal")
+  proteinGoalG  Float?   @map("protein_goal_g")
+  carbsGoalG    Float?   @map("carbs_goal_g")
+  fatGoalG      Float?   @map("fat_goal_g")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   foods    Food[]
   entries  FoodEntry[]

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN "calorie_goal" DOUBLE PRECISION,
+ADD COLUMN "protein_goal_g" DOUBLE PRECISION,
+ADD COLUMN "carbs_goal_g" DOUBLE PRECISION,
+ADD COLUMN "fat_goal_g" DOUBLE PRECISION;

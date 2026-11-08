@@ -42,6 +42,35 @@ export function AddFoodSheet({
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
       <div className="flex h-dvh w-full max-w-[var(--app-max-width)] flex-col bg-bg shadow-2xl">
+        <div
+          className={
+            selected ? "hidden" : "flex min-h-0 flex-1 flex-col"
+          }
+        >
+          <FoodPicker
+            initialRecents={initialRecents}
+            initialFavorites={initialFavorites}
+            initialAll={initialAll}
+            subtitle={
+              <>
+                Adding to{" "}
+                <span className="font-medium text-text">{mealLabel(meal)}</span>
+              </>
+            }
+            onSelect={setSelected}
+            onClose={close}
+            footer={
+              <div className="border-t border-border p-4">
+                <Link
+                  href={`/foods/new?returnTo=${encodeURIComponent(`/diary/${dateKey}?add=${meal}`)}`}
+                  className="flex w-full items-center justify-center rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-accent transition hover:bg-surface"
+                >
+                  + Create custom food
+                </Link>
+              </div>
+            }
+          />
+        </div>
         {selected ? (
           <ServingsStep
             food={selected}
@@ -77,31 +106,7 @@ export function AddFoodSheet({
               close();
             }}
           />
-        ) : (
-          <FoodPicker
-            initialRecents={initialRecents}
-            initialFavorites={initialFavorites}
-            initialAll={initialAll}
-            subtitle={
-              <>
-                Adding to{" "}
-                <span className="font-medium text-text">{mealLabel(meal)}</span>
-              </>
-            }
-            onSelect={setSelected}
-            onClose={close}
-            footer={
-              <div className="border-t border-border p-4">
-                <Link
-                  href={`/foods/new?returnTo=${encodeURIComponent(`/diary/${dateKey}?add=${meal}`)}`}
-                  className="flex w-full items-center justify-center rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-accent transition hover:bg-surface"
-                >
-                  + Create custom food
-                </Link>
-              </div>
-            }
-          />
-        )}
+        ) : null}
       </div>
     </div>
   );

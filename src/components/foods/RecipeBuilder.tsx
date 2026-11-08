@@ -127,68 +127,69 @@ export function RecipeBuilder({
     };
   }, [totals, servingsNum, servingsValid]);
 
-  if (step === "pick") {
+  if (step === "pick" || (step === "amount" && selected)) {
+    const showAmount = step === "amount" && selected;
     return (
       <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
         <div className="flex h-dvh w-full max-w-[var(--app-max-width)] flex-col bg-bg shadow-2xl">
-          <FoodPicker
-            initialRecents={initialRecents}
-            initialFavorites={initialFavorites}
-            initialAll={initialAll}
-            subtitle={
-              <>
-                Adding to <span className="font-medium text-text">recipe</span>
-              </>
+          <div
+            className={
+              showAmount ? "hidden" : "flex min-h-0 flex-1 flex-col"
             }
-            onSelect={(food) => {
-              setSelected(food);
-              setStep("amount");
-            }}
-            onClose={() => setStep("build")}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "amount" && selected) {
-    return (
-      <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
-        <div className="flex h-dvh w-full max-w-[var(--app-max-width)] flex-col bg-bg shadow-2xl">
-          <ServingsStep
-            food={selected}
-            onBack={() => {
-              setSelected(null);
-              setStep("pick");
-            }}
-            onConfirm={async ({ quantity, unitMode, selectedUnit }) => {
-              const m = quantityMultiplier(
-                quantity,
-                unitMode,
-                selected.servingQty,
-                selected.servingsPerRecipe,
-                unitMode === "food"
-                  ? {
-                      foodServingUnit: selected.servingUnit,
-                      selectedUnit: selectedUnit ?? selected.servingUnit,
-                    }
-                  : undefined,
-              );
-              setIngredients((prev) => [
-                ...prev,
-                {
-                  key: `${selected.id}-${Date.now()}`,
-                  food: selected,
+          >
+            <FoodPicker
+              initialRecents={initialRecents}
+              initialFavorites={initialFavorites}
+              initialAll={initialAll}
+              subtitle={
+                <>
+                  Adding to{" "}
+                  <span className="font-medium text-text">recipe</span>
+                </>
+              }
+              onSelect={(food) => {
+                setSelected(food);
+                setStep("amount");
+              }}
+              onClose={() => setStep("build")}
+            />
+          </div>
+          {showAmount ? (
+            <ServingsStep
+              food={selected}
+              onBack={() => {
+                setSelected(null);
+                setStep("pick");
+              }}
+              onConfirm={async ({ quantity, unitMode, selectedUnit }) => {
+                const m = quantityMultiplier(
                   quantity,
                   unitMode,
-                  selectedUnit,
-                  calories: selected.calories * m,
-                },
-              ]);
-              setSelected(null);
-              setStep("build");
-            }}
-          />
+                  selected.servingQty,
+                  selected.servingsPerRecipe,
+                  unitMode === "food"
+                    ? {
+                        foodServingUnit: selected.servingUnit,
+                        selectedUnit: selectedUnit ?? selected.servingUnit,
+                      }
+                    : undefined,
+                );
+                setIngredients((prev) => [
+                  ...prev,
+                  {
+                    key: `${selected.id}-${Date.now()}`,
+                    food: selected,
+                    quantity,
+                    unitMode,
+                    selectedUnit,
+                    calories: selected.calories * m,
+                  },
+                ]);
+                setSelected(null);
+                setStep("build");
+              }}
+            />
+          ) : null}
         </div>
       </div>
     );
