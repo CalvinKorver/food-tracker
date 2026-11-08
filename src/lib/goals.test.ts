@@ -4,7 +4,7 @@ import {
   macroPercents,
   macrosMatchCalories,
   parseGoalInput,
-  ringProgress,
+  goalPercent,
 } from "@/lib/goals";
 
 /** 170P + 220C + 80F = 680 + 880 + 720 = 2280 — adjust fat for 2200 */
@@ -74,15 +74,10 @@ describe("parseGoalInput", () => {
   });
 });
 
-describe("ringProgress", () => {
-  it("returns 0 for missing or zero goal", () => {
-    expect(ringProgress(100, null)).toBe(0);
-    expect(ringProgress(100, 0)).toBe(0);
-  });
-
-  it("clamps at 1 when overshooting", () => {
-    expect(ringProgress(110, 100)).toBe(1);
-    expect(ringProgress(50, 100)).toBe(0.5);
-    expect(ringProgress(0, 100)).toBe(0);
+describe("goalPercent", () => {
+  it("returns 0 for missing goal and rounds unclamped percent", () => {
+    expect(goalPercent(100, null)).toBe(0);
+    expect(goalPercent(50, 100)).toBe(50);
+    expect(goalPercent(110, 100)).toBe(110);
   });
 });

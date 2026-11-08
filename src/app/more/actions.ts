@@ -27,6 +27,7 @@ export async function saveGoalsAction(formData: FormData) {
   });
 
   revalidatePath("/more");
+  revalidatePath("/more/goals");
   revalidatePath("/diary/today");
   revalidatePath("/diary", "layout");
 

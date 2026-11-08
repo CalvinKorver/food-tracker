@@ -51,10 +51,13 @@ export function macrosMatchCalories(
   return Math.abs(macros - calorieGoal) / calorieGoal <= MACRO_CALORIE_TOLERANCE;
 }
 
-/** Ring fill fraction, clamped to 0..1. Overshoot only in legend text. */
-export function ringProgress(current: number, goal: number | null | undefined): number {
+/** Unclamped percent for labels (can exceed 100 when overshooting). */
+export function goalPercent(
+  current: number,
+  goal: number | null | undefined,
+): number {
   if (goal == null || !(goal > 0) || !Number.isFinite(current)) return 0;
-  return Math.min(1, Math.max(0, current / goal));
+  return Math.round((current / goal) * 100);
 }
 
 export function goalsFromUser(user: {

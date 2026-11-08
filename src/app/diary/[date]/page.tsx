@@ -2,12 +2,13 @@ import { ViewTransition } from "react";
 import { redirect } from "next/navigation";
 import { AddFoodSheet } from "@/components/foods/AddFoodSheet";
 import { DayHeader } from "@/components/diary/DayHeader";
-import { DayTotalsCard } from "@/components/diary/DayTotalsCard";
+import { DayTargetsCard } from "@/components/diary/DayTargetsCard";
 import { MealCard } from "@/components/diary/MealCard";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveDiaryDate } from "@/lib/dates";
 import { getDiaryDay } from "@/lib/diary";
 import { isMealType } from "@/lib/food-shared";
+import { goalsFromUser } from "@/lib/goals";
 import {
   getFoodListItem,
   listAllFoods,
@@ -70,7 +71,7 @@ export default async function DiaryPage({
         nextKey={resolved.nextKey}
       />
 
-      <DayTotalsCard totals={day.totals} />
+      <DayTargetsCard totals={day.totals} goals={goalsFromUser(user)} />
 
       <div className="space-y-4">
         {mealCards.map((group) => (

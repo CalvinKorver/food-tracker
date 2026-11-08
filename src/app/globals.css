@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+html.dark {
   --bg: #000000;
   --bg-elevated: #1c1c1e;
   --surface: #1c1c1e;
@@ -12,10 +13,34 @@
   --accent-hover: #409cff;
   --accent-teal: #30d158;
   --danger: #ff453a;
+  --nutrient-energy: var(--accent-teal);
+  --nutrient-protein: var(--accent);
+  --nutrient-carbs: #ff9f0a;
+  --nutrient-fat: #ffd60a;
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
     system-ui, sans-serif;
   --nav-height: 4.5rem;
   --app-max-width: 28rem;
+  color-scheme: dark;
+}
+
+html.light {
+  --bg: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #e5e5ea;
+  --border: #d1d1d6;
+  --text: #000000;
+  --text-muted: #8e8e93;
+  --accent: #007aff;
+  --accent-hover: #0066d6;
+  --accent-teal: #34c759;
+  --danger: #ff3b30;
+  --nutrient-energy: var(--accent-teal);
+  --nutrient-protein: var(--accent);
+  --nutrient-carbs: #ff9500;
+  --nutrient-fat: #ffcc00;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -48,6 +73,48 @@ body {
   color: var(--text);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
+}
+
+progress.nutrient-progress {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  border: none;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--surface-hover);
+  accent-color: var(--progress-fill);
+}
+
+progress.nutrient-progress::-webkit-progress-bar {
+  background: var(--surface-hover);
+  border-radius: 9999px;
+}
+
+progress.nutrient-progress::-webkit-progress-value {
+  background: var(--progress-fill);
+  border-radius: 9999px;
+}
+
+progress.nutrient-progress::-moz-progress-bar {
+  background: var(--progress-fill);
+  border-radius: 9999px;
+}
+
+progress.nutrient-progress--energy {
+  --progress-fill: var(--nutrient-energy);
+}
+
+progress.nutrient-progress--protein {
+  --progress-fill: var(--nutrient-protein);
+}
+
+progress.nutrient-progress--carbs {
+  --progress-fill: var(--nutrient-carbs);
+}
+
+progress.nutrient-progress--fat {
+  --progress-fill: var(--nutrient-fat);
 }
 
 /* Add Food sheet View Transitions */
