@@ -21,6 +21,7 @@ import {
 } from "@/app/diary/actions";
 import { type AddFoodTab, type FoodListItem } from "@/lib/food-shared";
 import { formatNutrient } from "@/lib/nutrients";
+import { dataTypeBadge } from "@/lib/sources/rank-usda-hits";
 
 type FoodPickerProps = {
   initialRecents: FoodListItem[];
@@ -67,6 +68,7 @@ export function FoodPicker({
   >("idle");
   const [offError, setOffError] = useState<string | null>(null);
   const [selectingKey, setSelectingKey] = useState<string | null>(null);
+  const [expandedUsda, setExpandedUsda] = useState<Set<string>>(() => new Set());
   const [, startFavoriteTransition] = useTransition();
 
   const lists = useMemo(
@@ -97,6 +99,7 @@ export function FoodPicker({
       setUsdaHits([]);
       setUsdaStatus("idle");
       setUsdaError(null);
+      setExpandedUsda(new Set());
       setOffHits([]);
       setOffStatus("idle");
       setOffError(null);
@@ -106,6 +109,7 @@ export function FoodPicker({
     let cancelled = false;
     setUsdaStatus("loading");
     setUsdaError(null);
+    setExpandedUsda(new Set());
     setOffHits([]);
     setOffStatus("idle");
     setOffError(null);
@@ -183,11 +187,11 @@ export function FoodPicker({
     });
   }
 
-  async function pickUsda(hit: UsdaSearchHit) {
-    setSelectingKey(`usda:${hit.fdcId}`);
+  async function pickUsda(fdcId: string) {
+    setSelectingKey(`usda:${fdcId}`);
     setUsdaError(null);
     try {
-      const result = await selectUsdaFoodAction(hit.fdcId);
+      const result = await selectUsdaFoodAction(fdcId);
       if (!result.ok) {
         setUsdaError(result.error);
         return;
@@ -196,6 +200,41 @@ export function FoodPicker({
     } finally {
       setSelectingKey(null);
     }
+  }
+
+  function usdaDetail(caloriesPer100g: number | null) {
+    return caloriesPer100g != null
+      ? `100 g · ${formatNutrient(caloriesPer100g)} kcal`
+      : "Tap to load nutrition";
+  }
+
+  function renderUsdaHit(
+    hit: Pick<
+      UsdaSearchHit,
+      | "fdcId"
+      | "name"
+      | "displayName"
+      | "brand"
+      | "dataType"
+      | "caloriesPer100g"
+    >,
+  ) {
+    return (
+      <FoodResultRow
+        key={hit.fdcId}
+        food={{
+          name: hit.displayName,
+          brand: hit.brand,
+          isFavorite: false,
+        }}
+        badge={dataTypeBadge(hit.dataType)}
+        detail={usdaDetail(hit.caloriesPer100g)}
+        onSelect={() => {
+          if (selectingKey) return;
+          void pickUsda(hit.fdcId);
+        }}
+      />
+    );
   }
 
   async function pickOff(hit: OffSearchHit) {
@@ -324,26 +363,37 @@ export function FoodPicker({
               </p>
             ) : null}
             {usdaStatus === "ready"
-              ? usdaHits.map((hit) => (
-                  <FoodResultRow
-                    key={hit.fdcId}
-                    food={{
-                      name: hit.name,
-                      brand: hit.brand,
-                      isFavorite: false,
-                    }}
-                    badge="USDA"
-                    detail={
-                      hit.caloriesPer100g != null
-                        ? `100 g · ${formatNutrient(hit.caloriesPer100g)} kcal`
-                        : "Tap to load nutrition"
-                    }
-                    onSelect={() => {
-                      if (selectingKey) return;
-                      void pickUsda(hit);
-                    }}
-                  />
-                ))
+              ? usdaHits.map((hit) => {
+                  const expanded = expandedUsda.has(hit.fdcId);
+                  return (
+                    <div key={hit.fdcId}>
+                      {renderUsdaHit(hit)}
+                      {hit.variants.length > 0 ? (
+                        <div className="border-b border-border px-4 pb-2">
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-accent hover:text-accent-hover"
+                            onClick={() => {
+                              setExpandedUsda((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(hit.fdcId)) next.delete(hit.fdcId);
+                                else next.add(hit.fdcId);
+                                return next;
+                              });
+                            }}
+                          >
+                            {expanded
+                              ? "Hide similar"
+                              : `${hit.variants.length} similar`}
+                          </button>
+                        </div>
+                      ) : null}
+                      {expanded
+                        ? hit.variants.map((variant) => renderUsdaHit(variant))
+                        : null}
+                    </div>
+                  );
+                })
               : null}
             {usdaError && usdaStatus === "ready" ? (
               <p className="px-4 py-2 text-center text-sm text-danger">

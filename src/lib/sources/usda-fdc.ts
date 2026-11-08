@@ -1,4 +1,8 @@
 import { FoodSource } from "@/generated/prisma/client";
+import {
+  rankUsdaHits,
+  type RankedUsdaHit,
+} from "@/lib/sources/rank-usda-hits";
 import type { NormalizedFood } from "./types";
 
 export type FdcPortion = { label: string; grams: number };
@@ -11,6 +15,8 @@ export type FdcSearchHit = {
   /** Per 100 g when present on the search payload. */
   caloriesPer100g: number | null;
 };
+
+export type { RankedUsdaHit };
 
 type FdcNutrientEntry = {
   amount?: number;
@@ -188,7 +194,7 @@ export function normalizeFdcFood(raw: FdcFoodDetail): NormalizedFood | null {
 export async function searchFdcFoods(
   query: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<FdcSearchHit[]> {
+): Promise<RankedUsdaHit[]> {
   const trimmed = query.trim();
   if (trimmed.length < 3) return [];
 
@@ -222,7 +228,7 @@ export async function searchFdcFoods(
       caloriesPer100g: searchCaloriesPer100g(food.foodNutrients),
     });
   }
-  return hits;
+  return rankUsdaHits(hits, trimmed);
 }
 
 /** Search payload uses flat nutrientId/value; returns null when kcal is absent. */

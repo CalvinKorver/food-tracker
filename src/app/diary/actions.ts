@@ -94,8 +94,18 @@ const BARCODE_RE = /^\d{8,14}$/;
 export type UsdaSearchHit = {
   fdcId: string;
   name: string;
+  displayName: string;
   brand: string | null;
+  dataType: string | null;
   caloriesPer100g: number | null;
+  variants: Array<{
+    fdcId: string;
+    name: string;
+    displayName: string;
+    brand: string | null;
+    dataType: string | null;
+    caloriesPer100g: number | null;
+  }>;
 };
 
 /** Slim OFF hit — nutrition loaded on select via product API. */

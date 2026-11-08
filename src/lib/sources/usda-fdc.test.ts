@@ -97,9 +97,11 @@ describe("searchFdcFoods / fetchFdcFood", () => {
       {
         fdcId: "171287",
         name: "Egg, whole, raw, fresh",
+        displayName: "Egg, whole, raw, fresh",
         brand: null,
         dataType: "SR Legacy",
         caloriesPer100g: 143,
+        variants: [],
       },
     ]);
     const calledUrl = String(fetchImpl.mock.calls.at(0)?.at(0) ?? "");
