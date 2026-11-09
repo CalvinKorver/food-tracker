@@ -79,6 +79,7 @@ export function ServingsStep({
   const [quantity, setQuantity] = useState("1");
   const [selectedUnit, setSelectedUnit] = useState(options[0] ?? SERVING_UNIT_KEY);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<MealType | undefined>(meal);
   const [pending, startTransition] = useTransition();
   const [, startFavoriteTransition] = useTransition();
   const [isFavorite, setIsFavorite] = useState(food.isFavorite);
@@ -276,7 +277,7 @@ export function ServingsStep({
             aria-label="Choose meal"
           >
             {MEAL_OPTIONS.map(({ meal: optionMeal, label }) => {
-              const selected = optionMeal === meal;
+              const selected = optionMeal === selectedMeal;
               return (
                 <button
                   key={optionMeal}
@@ -285,7 +286,7 @@ export function ServingsStep({
                   aria-selected={selected}
                   disabled={pending}
                   className="flex w-full items-center justify-between border-b border-border px-4 py-3.5 text-left text-base font-medium text-text transition last:border-b-0 hover:bg-surface-hover disabled:opacity-50"
-                  onClick={() => submit(optionMeal)}
+                  onClick={() => setSelectedMeal(optionMeal)}
                 >
                   <span>{label}</span>
                   {selected ? (
@@ -306,7 +307,11 @@ export function ServingsStep({
           onClick={() => {
             if (!valid) return;
             if (needsMeal) {
-              setPickerOpen((open) => !open);
+              if (!pickerOpen) {
+                setPickerOpen(true);
+                return;
+              }
+              if (selectedMeal) submit(selectedMeal);
               return;
             }
             submit();

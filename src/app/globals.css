@@ -19,8 +19,8 @@ html.dark {
   --nutrient-fat: #ffd60a;
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
     system-ui, sans-serif;
-  /* Pill (3.5rem) + float gap + safe-area buffer for main padding */
-  --nav-height: 5.5rem;
+  /* Pill (4rem / h-16) + float gap + safe-area buffer for main padding */
+  --nav-height: 6rem;
   --app-max-width: 28rem;
   --glass-fill: rgb(28 28 30 / 0.92);
   --glass-fill-blur: rgb(255 255 255 / 0.1);

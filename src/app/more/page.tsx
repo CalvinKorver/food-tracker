@@ -26,6 +26,15 @@ export default function MorePage() {
             ›
           </span>
         </Link>
+        <Link
+          href="/more/meal-times"
+          className="flex items-center justify-between rounded-xl bg-surface px-4 py-3.5 text-[17px] text-text transition hover:bg-surface-hover"
+        >
+          <span>Meal times</span>
+          <span className="text-text-muted" aria-hidden>
+            ›
+          </span>
+        </Link>
       </section>
 
       <section className="flex flex-col gap-2">

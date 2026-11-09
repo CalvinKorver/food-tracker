@@ -7,20 +7,31 @@ import { BottomNav } from "@/components/shell/BottomNav";
 import { BarcodeScannerScreen } from "@/components/foods/BarcodeScannerScreen";
 import { LabelCaptureScreen } from "@/components/foods/LabelCaptureScreen";
 import type { FoodListItem } from "@/lib/food-shared";
+import {
+  suggestedMealForLocalTime,
+  type MealWindows,
+} from "@/lib/meal-windows";
 
 function diaryDateKeyFromPath(pathname: string): string {
   const match = pathname.match(/^\/diary\/([^/]+)/);
   return match?.[1] ?? "today";
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  mealWindows,
+}: {
+  children: React.ReactNode;
+  mealWindows: MealWindows;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [addOpen, setAddOpen] = useState(false);
   const [overlay, setOverlay] = useState<"barcode" | "label" | null>(null);
 
   const dateKey = diaryDateKeyFromPath(pathname);
-  const diaryAddReturnTo = `/diary/${dateKey}?add=snack`;
+  const addPath = () =>
+    `/diary/${dateKey}?add=${suggestedMealForLocalTime(new Date(), mealWindows)}`;
   const hideChrome =
     pathname === "/sign-in" ||
     pathname.startsWith("/sign-in/") ||
@@ -46,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               open={addOpen}
               onClose={() => setAddOpen(false)}
               onSearchFood={() =>
-                router.push(diaryAddReturnTo, {
+                router.push(addPath(), {
                   transitionTypes: ["sheet-open"],
                 })
               }
@@ -58,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClose={() => setOverlay(null)}
               onFound={(food: FoodListItem) => {
                 setOverlay(null);
-                router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`, {
+                router.push(`${addPath()}&foodId=${food.id}`, {
                   transitionTypes: ["sheet-open"],
                 });
               }}
@@ -66,7 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <LabelCaptureScreen
               open={overlay === "label"}
               onClose={() => setOverlay(null)}
-              returnTo={diaryAddReturnTo}
+              returnTo={addPath()}
             />
           </>
         )}

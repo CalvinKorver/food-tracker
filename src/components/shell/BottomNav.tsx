@@ -119,7 +119,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
       </svg>
 
       <div
-        className="liquid-glass relative grid h-14 grid-cols-5 items-center rounded-full p-1.5"
+        className="liquid-glass relative grid h-16 grid-cols-5 items-center rounded-full p-1.5"
         style={
           {
             "--count": 5,

@@ -33,6 +33,7 @@ model User {
   proteinGoalG Float?   @map("protein_goal_g")
   carbsGoalG   Float?   @map("carbs_goal_g")
   fatGoalG     Float?   @map("fat_goal_g")
+  mealWindows  Json?    @map("meal_windows")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   foods     Food[]
