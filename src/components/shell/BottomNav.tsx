@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { CSSProperties } from "react";
 
 type NavItem = {
   href: string;
   label: string;
   icon: "discover" | "diary" | "foods" | "more";
+  col: 0 | 1 | 3 | 4;
 };
 
 const items: NavItem[] = [
-  { href: "/discover", label: "Discover", icon: "discover" },
-  { href: "/diary/today", label: "Diary", icon: "diary" },
-  { href: "/foods", label: "Foods", icon: "foods" },
-  { href: "/more", label: "More", icon: "more" },
+  { href: "/discover", label: "Discover", icon: "discover", col: 0 },
+  { href: "/diary/today", label: "Diary", icon: "diary", col: 1 },
+  { href: "/foods", label: "Foods", icon: "foods", col: 3 },
+  { href: "/more", label: "More", icon: "more", col: 4 },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -23,12 +25,23 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function NavIcon({ icon, active }: { icon: NavItem["icon"]; active: boolean }) {
+function activeCol(pathname: string): number {
+  const hit = items.find((item) => isActive(pathname, item.href));
+  return hit?.col ?? -1;
+}
+
+function NavIcon({
+  icon,
+  active,
+}: {
+  icon: NavItem["icon"];
+  active: boolean;
+}) {
   const common = {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     viewBox: "0 0 24 24",
-    fill: active ? "var(--accent-teal)" : "var(--text-muted)",
+    fill: active ? "var(--text)" : "var(--text-muted)",
     fillRule: "evenodd" as const,
     "aria-hidden": true as const,
   };
@@ -70,51 +83,85 @@ type BottomNavProps = {
 
 export function BottomNav({ onAdd }: BottomNavProps) {
   const pathname = usePathname();
-  const left = items.slice(0, 2);
-  const right = items.slice(2);
+  const index = activeCol(pathname);
+  const left = items.filter((item) => item.col < 2);
+  const right = items.filter((item) => item.col > 2);
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 z-40 w-full max-w-[var(--app-max-width)] -translate-x-1/2 border-t border-border bg-surface"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed bottom-0 left-1/2 z-40 w-full max-w-[var(--app-max-width)] -translate-x-1/2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       aria-label="Primary"
     >
-      <div className="grid h-[var(--nav-height)] grid-cols-5 items-center px-1">
+      <svg width="0" height="0" aria-hidden className="absolute">
+        <filter
+          id="liquid-glass-lens"
+          colorInterpolationFilters="sRGB"
+          x="-20%"
+          y="-40%"
+          width="140%"
+          height="180%"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.012 0.04"
+            numOctaves="2"
+            result="noise"
+          />
+          <feGaussianBlur in="noise" stdDeviation="1.5" result="soft" />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="soft"
+            scale="28"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
+
+      <div
+        className="liquid-glass relative grid h-14 grid-cols-5 items-center rounded-full p-1.5"
+        style={
+          {
+            "--count": 5,
+            "--index": Math.max(index, 0),
+          } as CSSProperties
+        }
+      >
+        {index >= 0 ? (
+          <span className="tab-indicator" aria-hidden>
+            <span key={index} className="tab-blob" />
+          </span>
+        ) : null}
+
         {left.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center gap-0.5 pt-1.5"
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
+              className="relative z-10 flex items-center justify-center rounded-full py-1 outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
             >
               <NavIcon icon={item.icon} active={active} />
-              <span
-                className="text-[11px] font-medium"
-                style={{
-                  color: active ? "var(--accent-teal)" : "var(--text-muted)",
-                }}
-              >
-                {item.label}
-              </span>
             </Link>
           );
         })}
 
-        <div className="flex justify-center">
+        <div className="relative z-10 flex justify-center">
           <button
             type="button"
             onClick={onAdd}
             aria-label="Add food"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-hover active:scale-95"
+            className="flex h-full w-full items-center justify-center rounded-full py-1 text-text outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-accent/70"
           >
             <svg
-              width="28"
-              height="28"
+              width="24"
+              height="24"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.4"
+              strokeWidth="2.2"
               strokeLinecap="round"
               aria-hidden
             >
@@ -129,17 +176,11 @@ export function BottomNav({ onAdd }: BottomNavProps) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center gap-0.5 pt-1.5"
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
+              className="relative z-10 flex items-center justify-center rounded-full py-1 outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
             >
               <NavIcon icon={item.icon} active={active} />
-              <span
-                className="text-[11px] font-medium"
-                style={{
-                  color: active ? "var(--accent-teal)" : "var(--text-muted)",
-                }}
-              >
-                {item.label}
-              </span>
             </Link>
           );
         })}

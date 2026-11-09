@@ -21,9 +21,26 @@ export function mcpResourceURL() {
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
-  baseURL: authBaseURL(),
+  // Object form so localhost + ngrok hosts both resolve (tunnel Origin ≠ BETTER_AUTH_URL).
+  baseURL: {
+    allowedHosts: [
+      "localhost:*",
+      "*.ngrok-free.app",
+      "*.ngrok.app",
+      "*.ngrok-free.dev",
+      new URL(authBaseURL()).host,
+    ],
+    protocol: "auto",
+    fallback: authBaseURL(),
+  },
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: [authBaseURL()],
+  trustedOrigins: [
+    authBaseURL(),
+    "http://localhost:*",
+    "https://*.ngrok-free.app",
+    "https://*.ngrok.app",
+    "https://*.ngrok-free.dev",
+  ],
   disabledPaths: ["/token"],
   emailAndPassword: {
     enabled: true,
@@ -64,6 +81,7 @@ export const auth = betterAuth({
     },
   },
   advanced: {
+    trustedProxyHeaders: true,
     database: {
       generateId: () => crypto.randomUUID(),
     },

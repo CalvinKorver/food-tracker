@@ -19,8 +19,15 @@ html.dark {
   --nutrient-fat: #ffd60a;
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
     system-ui, sans-serif;
-  --nav-height: 4.5rem;
+  /* Pill (3.5rem) + float gap + safe-area buffer for main padding */
+  --nav-height: 5.5rem;
   --app-max-width: 28rem;
+  --glass-fill: rgb(28 28 30 / 0.92);
+  --glass-fill-blur: rgb(255 255 255 / 0.1);
+  --glass-border: rgb(255 255 255 / 0.18);
+  --glass-highlight: rgb(255 255 255 / 0.28);
+  --glass-blob: rgb(255 255 255 / 0.16);
+  --glass-shadow: rgb(0 0 0 / 0.4);
   color-scheme: dark;
 }
 
@@ -40,6 +47,12 @@ html.light {
   --nutrient-protein: var(--accent);
   --nutrient-carbs: #ff9500;
   --nutrient-fat: #ffcc00;
+  --glass-fill: rgb(255 255 255 / 0.92);
+  --glass-fill-blur: rgb(255 255 255 / 0.45);
+  --glass-border: rgb(255 255 255 / 0.55);
+  --glass-highlight: rgb(255 255 255 / 0.7);
+  --glass-blob: rgb(0 0 0 / 0.08);
+  --glass-shadow: rgb(0 0 0 / 0.18);
   color-scheme: light;
 }
 
@@ -154,5 +167,83 @@ progress.nutrient-progress--fat {
   ::view-transition-group(*) {
     animation-duration: 0s !important;
     animation-delay: 0s !important;
+  }
+}
+
+/* Liquid glass bottom nav */
+.liquid-glass {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 10px 28px var(--glass-shadow);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .liquid-glass {
+    background: var(--glass-fill-blur);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+}
+
+/* Chromium-only: SVG refraction inside backdrop-filter */
+@supports (-webkit-app-region: inherit) {
+  .liquid-glass {
+    -webkit-backdrop-filter: url("#liquid-glass-lens") blur(2px) saturate(160%);
+    backdrop-filter: url("#liquid-glass-lens") blur(2px) saturate(160%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass {
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.tab-indicator {
+  position: absolute;
+  inset-block: 0.375rem;
+  left: 0.375rem;
+  z-index: 0;
+  width: calc((100% - 0.75rem) / var(--count));
+  transform: translateX(calc(var(--index) * 100%));
+  transition: transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+}
+
+.tab-blob {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--glass-blob);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  animation: tab-squish 420ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+@keyframes tab-squish {
+  0% {
+    transform: scale(1, 1);
+  }
+  35% {
+    transform: scale(1.18, 0.88);
+  }
+  70% {
+    transform: scale(0.96, 1.04);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-indicator {
+    transition: none;
+  }
+
+  .tab-blob {
+    animation: none;
   }
 }
