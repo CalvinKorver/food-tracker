@@ -222,6 +222,23 @@ export async function upsertOffFood(
   return { ...toFoodListBase(food), isFavorite: favorites.has(food.id) };
 }
 
+/** Fetch a USDA FDC food and upsert it into the catalog (shared by UI + MCP). */
+export async function selectUsdaFood(
+  fdcId: string,
+  userId: string,
+): Promise<FoodListItem> {
+  const id = fdcId.trim();
+  if (!id) {
+    throw new Error("Invalid USDA food id");
+  }
+  const { fetchFdcFood } = await import("@/lib/sources/usda-fdc");
+  const normalized = await fetchFdcFood(id);
+  if (!normalized) {
+    throw new Error("Food not found");
+  }
+  return upsertFdcFood(normalized, userId);
+}
+
 export async function upsertFdcFood(
   normalized: NormalizedFood,
   userId?: string,

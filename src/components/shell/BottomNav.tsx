@@ -106,7 +106,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
             type="button"
             onClick={onAdd}
             aria-label="Add food"
-            className="flex h-14 w-14 -translate-y-3 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-hover active:scale-95"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-hover active:scale-95"
           >
             <svg
               width="28"

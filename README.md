@@ -22,9 +22,11 @@ That will:
 3. Generate the Prisma client, apply migrations, and seed  
 4. Start the Next.js dev server  
 
-Open the URL printed in the terminal (usually **http://localhost:3000**). It redirects to `/diary/today`.
+Open the URL printed in the terminal (usually **http://localhost:3000**). Sign in with the seeded account (`calvin@foodtracker.local` / `SEED_USER_PASSWORD` from `.env`), then use the diary.
 
 If port 3000 is already used by another project, the app automatically picks the next free port and prints it.
+
+Auth uses Better Auth (email/password). Remote MCP for Claude / ChatGPT / Gemini is at `/api/mcp` — see [mcp/README.md](mcp/README.md).
 
 ### Day-to-day commands
 

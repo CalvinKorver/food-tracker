@@ -21,38 +21,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const dateKey = diaryDateKeyFromPath(pathname);
   const diaryAddReturnTo = `/diary/${dateKey}?add=snack`;
+  const hideChrome =
+    pathname === "/sign-in" ||
+    pathname.startsWith("/sign-in/") ||
+    pathname === "/consent" ||
+    pathname.startsWith("/consent/");
 
   return (
     <div className="min-h-dvh bg-bg text-text">
       <div className="mx-auto flex min-h-dvh w-full max-w-[var(--app-max-width)] flex-col bg-bg shadow-[0_0_0_1px_var(--border)]">
-        <main className="flex-1 px-4 pb-[calc(var(--nav-height)+1.5rem)] pt-[max(1rem,env(safe-area-inset-top))]">
+        <main
+          className={
+            hideChrome
+              ? "flex-1 px-4 pb-8 pt-[max(1rem,env(safe-area-inset-top))]"
+              : "flex-1 px-4 pb-[calc(var(--nav-height)+1.5rem)] pt-[max(1rem,env(safe-area-inset-top))]"
+          }
+        >
           {children}
         </main>
-        <BottomNav onAdd={() => setAddOpen(true)} />
-        <AddOptionsSheet
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          onSearchFood={() =>
-            router.push(diaryAddReturnTo, { transitionTypes: ["sheet-open"] })
-          }
-          onScanBarcode={() => setOverlay("barcode")}
-          onScanLabel={() => setOverlay("label")}
-        />
-        <BarcodeScannerScreen
-          open={overlay === "barcode"}
-          onClose={() => setOverlay(null)}
-          onFound={(food: FoodListItem) => {
-            setOverlay(null);
-            router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`, {
-              transitionTypes: ["sheet-open"],
-            });
-          }}
-        />
-        <LabelCaptureScreen
-          open={overlay === "label"}
-          onClose={() => setOverlay(null)}
-          returnTo={diaryAddReturnTo}
-        />
+        {hideChrome ? null : (
+          <>
+            <BottomNav onAdd={() => setAddOpen(true)} />
+            <AddOptionsSheet
+              open={addOpen}
+              onClose={() => setAddOpen(false)}
+              onSearchFood={() =>
+                router.push(diaryAddReturnTo, {
+                  transitionTypes: ["sheet-open"],
+                })
+              }
+              onScanBarcode={() => setOverlay("barcode")}
+              onScanLabel={() => setOverlay("label")}
+            />
+            <BarcodeScannerScreen
+              open={overlay === "barcode"}
+              onClose={() => setOverlay(null)}
+              onFound={(food: FoodListItem) => {
+                setOverlay(null);
+                router.push(`/diary/${dateKey}?add=snack&foodId=${food.id}`, {
+                  transitionTypes: ["sheet-open"],
+                });
+              }}
+            />
+            <LabelCaptureScreen
+              open={overlay === "label"}
+              onClose={() => setOverlay(null)}
+              returnTo={diaryAddReturnTo}
+            />
+          </>
+        )}
       </div>
     </div>
   );

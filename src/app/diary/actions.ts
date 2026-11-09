@@ -7,7 +7,6 @@ import { deleteFoodEntry } from "@/lib/diary";
 import {
   createFoodEntry,
   toggleFavorite,
-  upsertFdcFood,
   upsertOffFood,
   type FoodListItem,
 } from "@/lib/foods";
@@ -172,20 +171,11 @@ export async function selectUsdaFoodAction(
   | { ok: true; food: FoodListItem }
   | { ok: false; error: string }
 > {
-  const id = fdcId.trim();
-  if (!id) {
-    return { ok: false as const, error: "Invalid USDA food id" };
-  }
-
   const user = await getCurrentUser();
 
   try {
-    const { fetchFdcFood } = await import("@/lib/sources/usda-fdc");
-    const normalized = await fetchFdcFood(id);
-    if (!normalized) {
-      return { ok: false as const, error: "Food not found" };
-    }
-    const food = await upsertFdcFood(normalized, user.id);
+    const { selectUsdaFood } = await import("@/lib/foods");
+    const food = await selectUsdaFood(fdcId, user.id);
     return { ok: true as const, food };
   } catch (err) {
     const message =

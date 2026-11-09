@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { hashPassword } from "better-auth/crypto";
 import { PrismaClient, FoodSource } from "../src/generated/prisma/client";
 
 const adapter = new PrismaPg({
@@ -7,18 +8,53 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
-const DEFAULT_EMAIL = "calvin@foodtracker.local";
+export const DEFAULT_USER_EMAIL = "calvin@foodtracker.local";
 
 async function main() {
+  const password = process.env.SEED_USER_PASSWORD;
+  if (!password) {
+    throw new Error("SEED_USER_PASSWORD is not set");
+  }
+
   const user = await prisma.user.upsert({
-    where: { email: DEFAULT_EMAIL },
-    update: {},
-    create: {
-      email: DEFAULT_EMAIL,
+    where: { email: DEFAULT_USER_EMAIL },
+    update: {
       displayName: "Calvin",
       timezone: "America/Los_Angeles",
+      emailVerified: true,
+    },
+    create: {
+      email: DEFAULT_USER_EMAIL,
+      displayName: "Calvin",
+      timezone: "America/Los_Angeles",
+      emailVerified: true,
     },
   });
+
+  const passwordHash = await hashPassword(password);
+  const existingCredential = await prisma.account.findFirst({
+    where: {
+      userId: user.id,
+      providerId: "credential",
+    },
+  });
+
+  if (existingCredential) {
+    await prisma.account.update({
+      where: { id: existingCredential.id },
+      data: { password: passwordHash, accountId: user.id },
+    });
+  } else {
+    await prisma.account.create({
+      data: {
+        id: crypto.randomUUID(),
+        accountId: user.id,
+        providerId: "credential",
+        userId: user.id,
+        password: passwordHash,
+      },
+    });
+  }
 
   const oatmeal = await prisma.food.upsert({
     where: {
@@ -44,7 +80,6 @@ async function main() {
       source: FoodSource.custom,
       externalId: `seed:${user.id}:oatmeal`,
       name: "Oatmeal, cooked",
-      // Typical cooked oatmeal serving by weight (not raw).
       servingQty: 234,
       servingUnit: "g",
       calories: 158,
@@ -92,6 +127,7 @@ async function main() {
   });
 
   console.log("Seeded user:", user.email, user.id);
+  console.log("Seeded credential account for email/password login");
   console.log("Seeded foods:", oatmeal.name, "|", chicken.name);
   console.log("Seeded favorite:", chicken.name);
 }

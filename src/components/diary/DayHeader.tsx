@@ -26,10 +26,10 @@ function Chevron({ direction }: { direction: "left" | "right" }) {
 
 export function DayHeader({ label, prevKey, nextKey }: DayHeaderProps) {
   return (
-    <header className="flex items-center justify-center gap-6 pt-1">
+    <header className="flex items-center justify-center gap-6">
       <Link
         href={`/diary/${prevKey}`}
-        className="flex h-11 w-11 items-center justify-center text-accent transition active:opacity-50"
+        className="flex h-8 w-8 items-center justify-center text-accent transition active:opacity-50"
         aria-label="Previous day"
       >
         <Chevron direction="left" />
@@ -39,7 +39,7 @@ export function DayHeader({ label, prevKey, nextKey }: DayHeaderProps) {
       </h1>
       <Link
         href={`/diary/${nextKey}`}
-        className="flex h-11 w-11 items-center justify-center text-accent transition active:opacity-50"
+        className="flex h-8 w-8 items-center justify-center text-accent transition active:opacity-50"
         aria-label="Next day"
       >
         <Chevron direction="right" />

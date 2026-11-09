@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -24,39 +25,49 @@ enum MealType {
 }
 
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  email         String   @unique
-  displayName   String   @map("display_name")
-  timezone      String   @default("America/Los_Angeles")
-  calorieGoal   Float?   @map("calorie_goal")
-  proteinGoalG  Float?   @map("protein_goal_g")
-  carbsGoalG    Float?   @map("carbs_goal_g")
-  fatGoalG      Float?   @map("fat_goal_g")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  displayName  String   @map("display_name")
+  timezone     String   @default("America/Los_Angeles")
+  calorieGoal  Float?   @map("calorie_goal")
+  proteinGoalG Float?   @map("protein_goal_g")
+  carbsGoalG   Float?   @map("carbs_goal_g")
+  fatGoalG     Float?   @map("fat_goal_g")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  foods    Food[]
-  entries  FoodEntry[]
+  foods     Food[]
+  entries   FoodEntry[]
   favorites Favorite[]
+
+  emailVerified      Boolean             @default(false)
+  image              String?
+  updatedAt          DateTime            @updatedAt
+  sessions           Session[]
+  accounts           Account[]
+  oauthclients       OauthClient[]
+  oauthrefreshtokens OauthRefreshToken[]
+  oauthaccesstokens  OauthAccessToken[]
+  oauthconsents      OauthConsent[]
 
   @@map("users")
 }
 
 model Food {
-  id             String     @id @default(uuid()) @db.Uuid
-  userId         String?    @map("user_id") @db.Uuid
-  source         FoodSource
-  externalId     String?    @map("external_id")
-  barcode        String?
-  name           String
-  brand          String?
-  servingQty     Float      @map("serving_qty")
-  servingUnit    String     @map("serving_unit")
-  calories       Float      @default(0)
-  proteinG       Float      @default(0) @map("protein_g")
-  carbsG         Float      @default(0) @map("carbs_g")
-  fatG           Float      @default(0) @map("fat_g")
-  fiberG         Float      @default(0) @map("fiber_g")
-  sugarG         Float      @default(0) @map("sugar_g")
+  id                String     @id @default(uuid()) @db.Uuid
+  userId            String?    @map("user_id") @db.Uuid
+  source            FoodSource
+  externalId        String?    @map("external_id")
+  barcode           String?
+  name              String
+  brand             String?
+  servingQty        Float      @map("serving_qty")
+  servingUnit       String     @map("serving_unit")
+  calories          Float      @default(0)
+  proteinG          Float      @default(0) @map("protein_g")
+  carbsG            Float      @default(0) @map("carbs_g")
+  fatG              Float      @default(0) @map("fat_g")
+  fiberG            Float      @default(0) @map("fiber_g")
+  sugarG            Float      @default(0) @map("sugar_g")
   sodiumMg          Float      @default(0) @map("sodium_mg")
   nutrientsExtra    Json       @default("{}") @map("nutrients_extra")
   sourcePayload     Json?      @map("source_payload")
@@ -64,11 +75,11 @@ model Food {
   createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user                User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries             FoodEntry[]
-  favorites           Favorite[]
-  recipeIngredients   RecipeIngredient[] @relation("RecipeToIngredients")
-  usedInRecipes       RecipeIngredient[] @relation("IngredientInRecipes")
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries           FoodEntry[]
+  favorites         Favorite[]
+  recipeIngredients RecipeIngredient[] @relation("RecipeToIngredients")
+  usedInRecipes     RecipeIngredient[] @relation("IngredientInRecipes")
 
   @@unique([source, externalId])
   @@index([userId, source])
@@ -80,10 +91,8 @@ model RecipeIngredient {
   id            String @id @default(uuid()) @db.Uuid
   recipeId      String @map("recipe_id") @db.Uuid
   ingredientId  String @map("ingredient_id") @db.Uuid
-  /** Normalized multiplier of the ingredient's defined serving. */
   servings      Float
   quantityValue Float  @map("quantity_value")
-  /** "serving", "recipe", or the ingredient's serving unit string. */
   quantityUnit  String @map("quantity_unit")
   position      Int    @default(0)
 
@@ -112,11 +121,8 @@ model FoodEntry {
   foodId                 String   @map("food_id") @db.Uuid
   loggedOn               DateTime @map("logged_on") @db.Date
   meal                   MealType
-  /** Normalized multiplier of the food's defined serving (for nutrient snapshots). */
   servings               Float
-  /** Amount the user typed when logging. */
   quantityValue          Float    @map("quantity_value")
-  /** "serving" or the food's serving unit string (e.g. "g", "cup"). */
   quantityUnit           String   @map("quantity_unit")
   foodNameSnapshot       String   @map("food_name_snapshot")
   caloriesSnapshot       Float    @map("calories_snapshot")
@@ -136,4 +142,238 @@ model FoodEntry {
   @@index([userId, loggedOn])
   @@index([userId, createdAt])
   @@map("food_entries")
+}
+
+model Session {
+  id                 String              @id
+  expiresAt          DateTime
+  token              String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  ipAddress          String?
+  userAgent          String?
+  userId             String              @db.Uuid
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oauthrefreshtokens OauthRefreshToken[]
+  oauthaccesstokens  OauthAccessToken[]
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Jwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+
+  @@map("jwks")
+}
+
+model OauthClient {
+  id                               String                @id
+  clientId                         String
+  clientSecret                     String?
+  clientDiscoveryId                String?
+  disabled                         Boolean?              @default(false)
+  skipConsent                      Boolean?
+  enableEndSession                 Boolean?
+  subjectType                      String?
+  scopes                           String[]
+  clientCredentialsScopes          String[]              @default([])
+  userId                           String?               @db.Uuid
+  user                             User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                        DateTime?
+  updatedAt                        DateTime?
+  name                             String?
+  uri                              String?
+  icon                             String?
+  contacts                         String[]
+  tos                              String?
+  policy                           String?
+  softwareId                       String?
+  softwareVersion                  String?
+  softwareStatement                String?
+  redirectUris                     String[]
+  postLogoutRedirectUris           String[]
+  backchannelLogoutUri             String?
+  backchannelLogoutSessionRequired Boolean?
+  tokenEndpointAuthMethod          String?
+  applicationType                  String?
+  jwks                             String?
+  jwksUri                          String?
+  grantTypes                       String[]
+  responseTypes                    String[]
+  requirePKCE                      Boolean?
+  dpopBoundAccessTokens            Boolean?              @default(false)
+  referenceId                      String?
+  metadata                         Json?
+  oauthclientresources             OauthClientResource[]
+  oauthrefreshtokens               OauthRefreshToken[]
+  oauthaccesstokens                OauthAccessToken[]
+  oauthconsents                    OauthConsent[]
+
+  @@unique([clientId])
+  @@index([userId])
+  @@map("oauthClient")
+}
+
+model OauthResource {
+  id                            String                @id
+  identifier                    String
+  name                          String
+  accessTokenTtl                Int?
+  refreshTokenTtl               Int?
+  signingAlgorithm              String?
+  signingKeyId                  String?
+  allowedScopes                 String[]
+  customClaims                  Json?
+  dpopBoundAccessTokensRequired Boolean?              @default(false)
+  disabled                      Boolean?              @default(false)
+  createdAt                     DateTime?
+  updatedAt                     DateTime?
+  policyVersion                 Int?                  @default(1)
+  metadata                      Json?
+  oauthclientresources          OauthClientResource[]
+
+  @@unique([identifier])
+  @@map("oauthResource")
+}
+
+model OauthClientResource {
+  id            String        @id
+  clientId      String
+  oauthclient   OauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resourceId    String
+  oauthresource OauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+  metadata      Json?
+  createdAt     DateTime?
+
+  @@unique([clientId, resourceId], map: "oauthClientResource_clientId_resourceId_uidx")
+  @@index([clientId])
+  @@index([resourceId])
+  @@map("oauthClientResource")
+}
+
+model OauthRefreshToken {
+  id                      String             @id
+  token                   String
+  clientId                String
+  oauthclient             OauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String             @db.Uuid
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  expiresAt               DateTime
+  createdAt               DateTime
+  revoked                 DateTime?
+  rotatedAt               DateTime?
+  rotationReplayResponse  String?
+  rotationReplayExpiresAt DateTime?
+  authTime                DateTime?
+  confirmation            Json?
+  scopes                  String[]
+  oauthaccesstokens       OauthAccessToken[]
+
+  @@unique([token])
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@map("oauthRefreshToken")
+}
+
+model OauthAccessToken {
+  id                      String             @id
+  token                   String
+  clientId                String
+  oauthclient             OauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String?            @db.Uuid
+  user                    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  refreshId               String?
+  oauthrefreshtoken       OauthRefreshToken? @relation(fields: [refreshId], references: [id], onDelete: Cascade)
+  expiresAt               DateTime
+  createdAt               DateTime
+  revoked                 DateTime?
+  confirmation            Json?
+  scopes                  String[]
+
+  @@unique([token])
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@index([refreshId])
+  @@map("oauthAccessToken")
+}
+
+model OauthConsent {
+  id                      String      @id
+  clientId                String
+  oauthclient             OauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId                  String?     @db.Uuid
+  user                    User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  scopes                  String[]
+  createdAt               DateTime
+  updatedAt               DateTime
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauthConsent")
+}
+
+model OauthClientAssertion {
+  id        String   @id
+  expiresAt DateTime
+
+  @@map("oauthClientAssertion")
 }

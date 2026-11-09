@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignOutButton } from "@/components/more/SignOutButton";
 import { ThemePreferenceControl } from "@/components/more/ThemePreferenceControl";
 
 export default function MorePage() {
@@ -25,6 +26,11 @@ export default function MorePage() {
             ›
           </span>
         </Link>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-[17px] font-semibold text-text">Account</h2>
+        <SignOutButton />
       </section>
     </div>
   );
