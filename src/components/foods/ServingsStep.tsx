@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { formatNutrient, netCarbs } from "@/lib/nutrients";
-import { type FoodListItem } from "@/lib/food-shared";
+import { mealLabel, type FoodListItem } from "@/lib/food-shared";
 import {
   isWeightUnit,
   normalizeUnitKey,
@@ -12,7 +12,9 @@ import {
   type QuantityUnitMode,
 } from "@/lib/quantity";
 import { toggleFavoriteAction } from "@/app/diary/actions";
+import { CalorieNagSheet } from "@/components/foods/CalorieNagSheet";
 import { MealType } from "@/generated/prisma/enums";
+import { wouldExceedCalorieGoal } from "@/lib/calorie-nag";
 
 const MEAL_OPTIONS: { meal: MealType; label: string }[] = [
   { meal: MealType.breakfast, label: "Breakfast" },
@@ -21,16 +23,28 @@ const MEAL_OPTIONS: { meal: MealType; label: string }[] = [
   { meal: MealType.snack, label: "Snack" },
 ];
 
+const LONG_PRESS_MS = 450;
+
 type ServingsStepProps = {
   food: FoodListItem;
   meal?: MealType;
   confirmLabel?: string;
+  calorieNag?: {
+    enabled: boolean;
+    dayCalories: number;
+    dayProteinG: number;
+    dayFatG: number;
+    calorieGoal: number | null;
+    proteinGoalG: number | null;
+    fatGoalG: number | null;
+  };
   onBack: () => void;
   onConfirm: (input: {
     quantity: number;
     unitMode: QuantityUnitMode;
     selectedUnit?: string;
     meal?: MealType;
+    viaCalorieNag?: boolean;
   }) => Promise<void>;
 };
 
@@ -72,6 +86,7 @@ export function ServingsStep({
   food,
   meal,
   confirmLabel,
+  calorieNag,
   onBack,
   onConfirm,
 }: ServingsStepProps) {
@@ -84,12 +99,22 @@ export function ServingsStep({
   const [, startFavoriteTransition] = useTransition();
   const [isFavorite, setIsFavorite] = useState(food.isFavorite);
   const [error, setError] = useState<string | null>(null);
+  const [nagOpen, setNagOpen] = useState(false);
+  const [nagMeal, setNagMeal] = useState<MealType | undefined>();
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressedRef = useRef(false);
   const canFavorite = Boolean(food.id);
 
   const amount = Number(quantity);
   const valid = Number.isFinite(amount) && amount > 0;
   const needsMeal = meal != null;
-  const buttonLabel = confirmLabel ?? (needsMeal ? "Add" : "Add to recipe");
+  const buttonLabel =
+    confirmLabel ??
+    (needsMeal && selectedMeal
+      ? `Add to ${mealLabel(selectedMeal)}`
+      : needsMeal
+        ? "Add"
+        : "Add to recipe");
   const unitMode = modeFromSelected(selectedUnit);
 
   const preview = useMemo(() => {
@@ -122,20 +147,65 @@ export function ServingsStep({
     }
   }, [food, amount, unitMode, selectedUnit, valid]);
 
+  function clearLongPress() {
+    if (longPressTimer.current != null) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function onAddPointerDown() {
+    if (!needsMeal || !valid || pending || !preview) return;
+    longPressedRef.current = false;
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressedRef.current = true;
+      setPickerOpen(true);
+      longPressTimer.current = null;
+    }, LONG_PRESS_MS);
+  }
+
+  function onAddPointerEnd() {
+    clearLongPress();
+  }
+
+  async function commit(chosenMeal?: MealType, viaCalorieNag = false) {
+    try {
+      await onConfirm({
+        quantity: amount,
+        unitMode,
+        selectedUnit: unitMode === "food" ? selectedUnit : undefined,
+        meal: chosenMeal,
+        viaCalorieNag,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add");
+      setNagOpen(false);
+      throw err;
+    }
+  }
+
   function submit(chosenMeal?: MealType) {
-    if (!valid) return;
+    if (!valid || !preview) return;
     setError(null);
     setPickerOpen(false);
+    if (
+      calorieNag?.enabled &&
+      wouldExceedCalorieGoal(
+        calorieNag.dayCalories,
+        preview.calories,
+        calorieNag.calorieGoal,
+      )
+    ) {
+      setNagMeal(chosenMeal);
+      setNagOpen(true);
+      return;
+    }
     startTransition(async () => {
       try {
-        await onConfirm({
-          quantity: amount,
-          unitMode,
-          selectedUnit: unitMode === "food" ? selectedUnit : undefined,
-          meal: chosenMeal,
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to add");
+        await commit(chosenMeal);
+      } catch {
+        // error already set in commit
       }
     });
   }
@@ -170,6 +240,16 @@ export function ServingsStep({
 
   return (
     <div className="flex h-full flex-col">
+      {nagOpen ? (
+        <CalorieNagSheet
+          dayProteinG={calorieNag?.dayProteinG ?? 0}
+          dayFatG={calorieNag?.dayFatG ?? 0}
+          proteinGoalG={calorieNag?.proteinGoalG ?? null}
+          fatGoalG={calorieNag?.fatGoalG ?? null}
+          onDecline={() => setNagOpen(false)}
+          onAllow={() => commit(nagMeal, true)}
+        />
+      ) : null}
       <header className="flex items-center gap-2 border-b border-border px-3 py-3">
         <button
           type="button"
@@ -303,14 +383,22 @@ export function ServingsStep({
           type="button"
           disabled={!valid || pending || !preview}
           aria-expanded={needsMeal ? pickerOpen : undefined}
-          className="w-full rounded-2xl bg-accent py-3.5 text-center text-base font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50"
+          aria-haspopup={needsMeal ? "listbox" : undefined}
+          className="w-full touch-manipulation rounded-2xl bg-accent py-3.5 text-center text-base font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50"
+          onContextMenu={(e) => {
+            if (needsMeal) e.preventDefault();
+          }}
+          onPointerDown={onAddPointerDown}
+          onPointerUp={onAddPointerEnd}
+          onPointerLeave={onAddPointerEnd}
+          onPointerCancel={onAddPointerEnd}
           onClick={() => {
+            if (longPressedRef.current) {
+              longPressedRef.current = false;
+              return;
+            }
             if (!valid) return;
             if (needsMeal) {
-              if (!pickerOpen) {
-                setPickerOpen(true);
-                return;
-              }
               if (selectedMeal) submit(selectedMeal);
               return;
             }
@@ -319,6 +407,11 @@ export function ServingsStep({
         >
           {pending ? "Adding…" : buttonLabel}
         </button>
+        {needsMeal && !pickerOpen ? (
+          <p className="mt-2 text-center text-xs text-text-muted">
+            Long-press to change meal
+          </p>
+        ) : null}
       </div>
     </div>
   );

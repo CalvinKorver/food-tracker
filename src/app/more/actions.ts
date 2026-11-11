@@ -53,3 +53,16 @@ export async function saveMealWindowsAction(formData: FormData) {
 
   return { ok: true as const };
 }
+
+export async function saveCalorieNagAction(enabled: boolean) {
+  const user = await getCurrentUser();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { calorieNagEnabled: enabled },
+  });
+
+  revalidatePath("/more");
+  revalidatePath("/diary", "layout");
+
+  return { ok: true as const };
+}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { FoodPicker } from "@/components/foods/FoodPicker";
 import { ServingsStep } from "@/components/foods/ServingsStep";
 import { addFoodEntryAction } from "@/app/diary/actions";
@@ -17,7 +18,16 @@ type AddFoodSheetProps = {
   initialFavorites: FoodListItem[];
   initialAll: FoodListItem[];
   initialSelected?: FoodListItem | null;
+  dayCalories?: number;
+  dayProteinG?: number;
+  dayFatG?: number;
+  calorieGoal?: number | null;
+  proteinGoalG?: number | null;
+  fatGoalG?: number | null;
+  calorieNagEnabled?: boolean;
 };
+
+const SLIDE = { type: "spring" as const, stiffness: 420, damping: 36 };
 
 export function AddFoodSheet({
   meal,
@@ -27,25 +37,39 @@ export function AddFoodSheet({
   initialFavorites,
   initialAll,
   initialSelected = null,
+  dayCalories = 0,
+  dayProteinG = 0,
+  dayFatG = 0,
+  calorieGoal = null,
+  proteinGoalG = null,
+  fatGoalG = null,
+  calorieNagEnabled = false,
 }: AddFoodSheetProps) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const [selected, setSelected] = useState<FoodListItem | null>(
     initialSelected,
   );
   const [openedFromBarcode] = useState(Boolean(initialSelected));
 
-  const close = () => {
-    router.push(`/diary/${dateKey}`, { transitionTypes: ["sheet-close"] });
+  const close = (opts?: { nagConceded?: boolean }) => {
+    const path = opts?.nagConceded
+      ? `/diary/${dateKey}?nagConceded=1`
+      : `/diary/${dateKey}`;
+    router.push(path, { transitionTypes: ["sheet-close"] });
     router.refresh();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
-      <div className="flex h-dvh w-full max-w-[var(--app-max-width)] flex-col bg-bg shadow-2xl">
+      <div className="relative flex h-dvh w-full max-w-[var(--app-max-width)] flex-col overflow-hidden bg-bg shadow-2xl">
         <div
           className={
-            selected ? "hidden" : "flex min-h-0 flex-1 flex-col"
+            selected
+              ? "invisible absolute inset-0 flex flex-col"
+              : "flex min-h-0 flex-1 flex-col"
           }
+          aria-hidden={selected ? true : undefined}
         >
           <FoodPicker
             initialRecents={initialRecents}
@@ -71,42 +95,64 @@ export function AddFoodSheet({
             }
           />
         </div>
-        {selected ? (
-          <ServingsStep
-            food={selected}
-            meal={meal}
-            onBack={() => {
-              if (openedFromBarcode) {
-                close();
-                return;
-              }
-              setSelected(null);
-            }}
-            onConfirm={async ({
-              quantity,
-              unitMode,
-              selectedUnit,
-              meal: chosenMeal,
-            }) => {
-              if (!chosenMeal) {
-                throw new Error("Meal is required");
-              }
-              const result = await addFoodEntryAction({
-                foodId: selected.id,
-                dateKey,
-                loggedOnKey,
-                meal: chosenMeal,
-                quantity,
-                unitMode,
-                selectedUnit,
-              });
-              if (!result.ok) {
-                throw new Error(result.error);
-              }
-              close();
-            }}
-          />
-        ) : null}
+
+        <AnimatePresence initial={false}>
+          {selected ? (
+            <motion.div
+              key={selected.id}
+              className="absolute inset-0 flex flex-col bg-bg"
+              initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+              animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+              transition={reduceMotion ? { duration: 0.15 } : SLIDE}
+            >
+              <ServingsStep
+                food={selected}
+                meal={meal}
+                calorieNag={{
+                  enabled: calorieNagEnabled,
+                  dayCalories,
+                  dayProteinG,
+                  dayFatG,
+                  calorieGoal,
+                  proteinGoalG,
+                  fatGoalG,
+                }}
+                onBack={() => {
+                  if (openedFromBarcode) {
+                    close();
+                    return;
+                  }
+                  setSelected(null);
+                }}
+                onConfirm={async ({
+                  quantity,
+                  unitMode,
+                  selectedUnit,
+                  meal: chosenMeal,
+                  viaCalorieNag,
+                }) => {
+                  if (!chosenMeal) {
+                    throw new Error("Meal is required");
+                  }
+                  const result = await addFoodEntryAction({
+                    foodId: selected.id,
+                    dateKey,
+                    loggedOnKey,
+                    meal: chosenMeal,
+                    quantity,
+                    unitMode,
+                    selectedUnit,
+                  });
+                  if (!result.ok) {
+                    throw new Error(result.error);
+                  }
+                  close({ nagConceded: viaCalorieNag });
+                }}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
     </div>
   );

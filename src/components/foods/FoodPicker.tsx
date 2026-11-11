@@ -51,7 +51,7 @@ export function FoodPicker({
   onSelect,
   onClose,
 }: FoodPickerProps) {
-  const [tab, setTab] = useState<AddFoodTab>("recents");
+  const [tab, setTab] = useState<AddFoodTab>("favorites");
   const [query, setQuery] = useState("");
   const [recents, setRecents] = useState(initialRecents);
   const [favorites, setFavorites] = useState(initialFavorites);

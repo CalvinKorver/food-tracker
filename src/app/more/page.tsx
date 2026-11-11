@@ -1,8 +1,12 @@
 import Link from "next/link";
+import { CalorieNagToggle } from "@/components/more/CalorieNagToggle";
 import { SignOutButton } from "@/components/more/SignOutButton";
 import { ThemePreferenceControl } from "@/components/more/ThemePreferenceControl";
+import { getCurrentUser } from "@/lib/current-user";
 
-export default function MorePage() {
+export default async function MorePage() {
+  const user = await getCurrentUser();
+
   return (
     <div className="flex flex-col gap-6 pt-1">
       <h1 className="text-lg font-semibold tracking-tight">More</h1>
@@ -35,6 +39,7 @@ export default function MorePage() {
             ›
           </span>
         </Link>
+        <CalorieNagToggle enabled={user.calorieNagEnabled} />
       </section>
 
       <section className="flex flex-col gap-2">

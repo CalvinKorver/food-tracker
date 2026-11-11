@@ -1,6 +1,7 @@
 import { ViewTransition } from "react";
 import { redirect } from "next/navigation";
 import { AddFoodSheet } from "@/components/foods/AddFoodSheet";
+import { CalorieNagConcedeModal } from "@/components/foods/CalorieNagConcedeModal";
 import { DayHeader } from "@/components/diary/DayHeader";
 import { DayTargetsCard } from "@/components/diary/DayTargetsCard";
 import { MealCard } from "@/components/diary/MealCard";
@@ -18,7 +19,7 @@ import {
 
 type DiaryPageProps = {
   params: Promise<{ date: string }>;
-  searchParams: Promise<{ add?: string; foodId?: string }>;
+  searchParams: Promise<{ add?: string; foodId?: string; nagConceded?: string }>;
 };
 
 export default async function DiaryPage({
@@ -26,7 +27,7 @@ export default async function DiaryPage({
   searchParams,
 }: DiaryPageProps) {
   const { date: dateParam } = await params;
-  const { add, foodId } = await searchParams;
+  const { add, foodId, nagConceded } = await searchParams;
   const user = await getCurrentUser();
   const resolved = resolveDiaryDate(dateParam, user.timezone);
 
@@ -98,8 +99,19 @@ export default async function DiaryPage({
             initialFavorites={favorites}
             initialAll={allFoods}
             initialSelected={initialSelected}
+            dayCalories={day.totals.calories}
+            dayProteinG={day.totals.proteinG}
+            dayFatG={day.totals.fatG}
+            calorieGoal={user.calorieGoal}
+            proteinGoalG={user.proteinGoalG}
+            fatGoalG={user.fatGoalG}
+            calorieNagEnabled={user.calorieNagEnabled}
           />
         </ViewTransition>
+      ) : null}
+
+      {!addMeal && nagConceded === "1" ? (
+        <CalorieNagConcedeModal dateKey={pathKey} />
       ) : null}
     </div>
   );
