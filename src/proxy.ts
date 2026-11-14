@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 /**
- * Only run on app pages that need a session. Do not match `/_next/*` (HMR/RSC),
- * `/api/*`, `/sign-in`, or static assets — a broad matcher redirects those to
- * `/sign-in` without a cookie and can spam full reloads in dev.
+ * Cookie gate for app pages. API routes use requireApiUser (cookie or bearer).
+ * /sign-in, /consent, /api/*, and static assets are excluded.
  */
 export function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);

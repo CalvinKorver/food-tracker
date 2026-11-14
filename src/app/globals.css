@@ -76,13 +76,14 @@ html.light {
 }
 
 html,
-body {
+body,
+#root {
   min-height: 100%;
+  background: var(--bg);
 }
 
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;

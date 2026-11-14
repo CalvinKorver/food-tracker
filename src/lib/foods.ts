@@ -157,8 +157,11 @@ export async function getFoodListItem(
   });
   if (!food) return null;
 
-  const favorites = await favoriteIdsFor(userId);
-  return { ...toFoodListBase(food), isFavorite: favorites.has(food.id) };
+  const favorite = await prisma.favorite.findUnique({
+    where: { userId_foodId: { userId, foodId: food.id } },
+    select: { foodId: true },
+  });
+  return { ...toFoodListBase(food), isFavorite: favorite != null };
 }
 
 export async function upsertOffFood(
@@ -308,9 +311,11 @@ export async function listRecentFoods(
   limit = 25,
 ): Promise<FoodListItem[]> {
   const favorites = await favoriteIdsFor(userId);
+  // Bound the scan: enough recent rows to usually fill `limit` unique foods.
   const entries = await prisma.foodEntry.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    take: Math.max(limit * 8, 100),
     select: { foodId: true, food: { select: FOOD_SELECT } },
   });
 

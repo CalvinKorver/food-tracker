@@ -223,8 +223,20 @@ async function main() {
     },
   ] as const;
 
-  const foodsByKey: Record<string, { id: string; name: string } & (typeof seedFoods)[number]> =
-    Object.create(null);
+  const foodsByKey: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      calories: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+      fiberG: number;
+      sugarG: number;
+      sodiumMg: number;
+    }
+  > = Object.create(null);
 
   for (const spec of seedFoods) {
     const food = await prisma.food.upsert({
@@ -262,7 +274,17 @@ async function main() {
         sodiumMg: spec.sodiumMg,
       },
     });
-    foodsByKey[spec.key] = { ...spec, id: food.id, name: food.name };
+    foodsByKey[spec.key] = {
+      id: food.id,
+      name: food.name,
+      calories: food.calories,
+      proteinG: food.proteinG,
+      carbsG: food.carbsG,
+      fatG: food.fatG,
+      fiberG: food.fiberG,
+      sugarG: food.sugarG,
+      sodiumMg: food.sodiumMg,
+    };
   }
 
   const loggedOn = todayDateInZone(user.timezone);
@@ -319,6 +341,87 @@ async function main() {
     "Seeded today:",
     loggedOn.toISOString().slice(0, 10),
     `${dayCals}/2000 kcal, ${dayProtein}/150g protein, ${dayFat}g fat (~${fatPct}%), nag on`,
+  );
+
+  const {
+    API_V1_SCOPES,
+    IOS_OAUTH_CLIENT_ID,
+    IOS_OAUTH_REDIRECT_URI,
+    apiV1ResourceURL,
+  } = await import("../src/lib/auth");
+  const apiResource = apiV1ResourceURL();
+  const apiScopes = [...API_V1_SCOPES];
+
+  await prisma.oauthResource.upsert({
+    where: { identifier: apiResource },
+    update: {
+      name: "Food Tracker API",
+      allowedScopes: apiScopes,
+      disabled: false,
+    },
+    create: {
+      id: crypto.randomUUID(),
+      identifier: apiResource,
+      name: "Food Tracker API",
+      allowedScopes: apiScopes,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  });
+
+  await prisma.oauthClient.upsert({
+    where: { clientId: IOS_OAUTH_CLIENT_ID },
+    update: {
+      name: "Food Tracker iOS",
+      redirectUris: [IOS_OAUTH_REDIRECT_URI],
+      grantTypes: ["authorization_code", "refresh_token"],
+      responseTypes: ["code"],
+      tokenEndpointAuthMethod: "none",
+      applicationType: "native",
+      requirePKCE: true,
+      scopes: apiScopes,
+      disabled: false,
+    },
+    create: {
+      id: crypto.randomUUID(),
+      clientId: IOS_OAUTH_CLIENT_ID,
+      name: "Food Tracker iOS",
+      redirectUris: [IOS_OAUTH_REDIRECT_URI],
+      grantTypes: ["authorization_code", "refresh_token"],
+      responseTypes: ["code"],
+      tokenEndpointAuthMethod: "none",
+      applicationType: "native",
+      requirePKCE: true,
+      scopes: apiScopes,
+      contacts: [],
+      postLogoutRedirectUris: [],
+      clientCredentialsScopes: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  });
+
+  await prisma.oauthClientResource.upsert({
+    where: {
+      clientId_resourceId: {
+        clientId: IOS_OAUTH_CLIENT_ID,
+        resourceId: apiResource,
+      },
+    },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      clientId: IOS_OAUTH_CLIENT_ID,
+      resourceId: apiResource,
+      createdAt: new Date(),
+    },
+  });
+
+  console.log(
+    "Seeded iOS OAuth client:",
+    IOS_OAUTH_CLIENT_ID,
+    "→",
+    IOS_OAUTH_REDIRECT_URI,
   );
 }
 

@@ -25,6 +25,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@food-tracker/contracts": [
+        "./packages/contracts/src/index.ts"
+      ],
+      "@food-tracker/domain": [
+        "./packages/domain/src/index.ts"
+      ],
+      "@food-tracker/client": [
+        "./packages/client/src/index.ts"
       ]
     }
   },
@@ -36,6 +45,9 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "e2e",
+    "playwright.config.ts",
+    "apps/ios"
   ]
 }

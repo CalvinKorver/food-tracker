@@ -42,3 +42,14 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Capacitor / iOS
+apps/ios/dist
+apps/ios/ios/App/Pods
+apps/ios/ios/App/build
+apps/ios/ios/App/App/public
+apps/ios/.env
+**/DerivedData
+playwright-report
+test-results
+

@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { AppShell } from "@/components/shell/AppShell";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { getRequestMealWindows } from "@/lib/request-meal-windows";
+import Script from "next/script";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -22,22 +20,20 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const mealWindows = await getRequestMealWindows();
-
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <ThemeProvider>
-          <AppShell mealWindows={mealWindows}>{children}</AppShell>
-        </ThemeProvider>
+        <Script
+          id="ft-theme-boot"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
+        />
+        {children}
       </body>
     </html>
   );

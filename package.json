@@ -2,6 +2,10 @@
   "name": "food-tracker",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "local": "node scripts/ensure-local.mjs && node scripts/dev-server.mjs",
@@ -13,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
     "test:db:prepare": "node scripts/prepare-test-db.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
@@ -24,14 +29,22 @@
     "db:reset": "prisma migrate reset",
     "mcp": "tsx mcp/server.ts",
     "prisma": "prisma",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "ios:dev": "npm run dev -w @food-tracker/ios",
+    "ios:build": "npm run build -w @food-tracker/ios",
+    "ios:sync": "npm run cap:sync -w @food-tracker/ios",
+    "ios:open": "npm run cap:open -w @food-tracker/ios"
   },
   "dependencies": {
     "@better-auth/cimd": "^1.7.18",
     "@better-auth/mcp": "^1.7.18",
+    "@food-tracker/client": "0.1.0",
+    "@food-tracker/contracts": "0.1.0",
+    "@food-tracker/domain": "0.1.0",
     "@modelcontextprotocol/server": "^2.4.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@tanstack/react-query": "^5.90.2",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "better-auth": "^1.7.18",
@@ -42,9 +55,11 @@
     "prisma": "^7.10.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-router-dom": "^7.9.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",

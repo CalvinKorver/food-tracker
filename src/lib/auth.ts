@@ -19,6 +19,23 @@ export function mcpResourceURL() {
   return `${authBaseURL()}/api/mcp`;
 }
 
+export function apiV1ResourceURL() {
+  return `${authBaseURL()}/api/v1`;
+}
+
+/** Fixed public OAuth client for the Capacitor iOS app (PKCE). */
+export const IOS_OAUTH_CLIENT_ID = "foodtracker-ios";
+
+export const IOS_OAUTH_REDIRECT_URI = "foodtracker://oauth/callback";
+
+export const API_V1_SCOPES = [
+  "openid",
+  "profile",
+  "offline_access",
+  "api:read",
+  "api:write",
+] as const;
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Object form so localhost + ngrok hosts both resolve (tunnel Origin ≠ BETTER_AUTH_URL).
@@ -40,11 +57,24 @@ export const auth = betterAuth({
     "https://*.ngrok-free.app",
     "https://*.ngrok.app",
     "https://*.ngrok-free.dev",
+    "capacitor://localhost",
+    "ionic://localhost",
+    "http://localhost",
+    ...(process.env.CAPACITOR_ORIGINS ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
   ],
   disabledPaths: ["/token"],
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
+    async sendResetPassword({ user, url }) {
+      // Wire to a real mailer in production. Logged for local/dev and App Review docs.
+      console.info(
+        `[auth] password reset for ${user.email}: ${url}`,
+      );
+    },
   },
   user: {
     modelName: "user",
@@ -103,6 +133,11 @@ export const auth = betterAuth({
             "mcp:read",
             "mcp:tools",
           ],
+        },
+        {
+          identifier: apiV1ResourceURL(),
+          name: "Food Tracker API",
+          allowedScopes: [...API_V1_SCOPES],
         },
       ],
       allowDynamicClientRegistration: true,

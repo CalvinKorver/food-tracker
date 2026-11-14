@@ -1,90 +1,65 @@
 # Food Tracker
 
-Cronometer-inspired meal diary (mobile web + desktop). Phase 1 scaffold in progress.
+Cronometer-inspired meal diary with a **shared React client** for the website and Capacitor iOS app. Next.js hosts the JSON API, Better Auth / MCP OAuth, and the web SPA.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/APP_STORE.md](docs/APP_STORE.md).
 
 ## Prerequisites
 
 - Node.js 20+
 - npm
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
+- For iOS: macOS + Xcode (full app, license accepted)
 
-## Start locally (one command)
+## Start locally (website)
 
 ```bash
 npm install
 npm run local
 ```
 
-That will:
-
-1. Create `.env` from `.env.example` if needed  
-2. Start Postgres with Docker Compose and wait until it’s healthy  
-3. Generate the Prisma client, apply migrations, and seed  
-4. Start the Next.js dev server  
-
-Open the URL printed in the terminal (usually **http://localhost:3000**). Sign in with the seeded account (`calvin@foodtracker.local` / `SEED_USER_PASSWORD` from `.env`), then use the diary.
-
-If port 3000 is already used by another project, the app automatically picks the next free port and prints it.
-
-Auth uses Better Auth (email/password). Remote MCP for Claude / ChatGPT / Gemini is at `/api/mcp` — see [mcp/README.md](mcp/README.md).
-
-### Day-to-day commands
+Open the printed URL (usually **http://localhost:3000**). Sign in with `calvin@foodtracker.local` / `SEED_USER_PASSWORD`.
 
 | Command | When to use |
 |---------|-------------|
-| `npm run local` | Usual daily start (ensures DB + app) |
-| `npm run setup` | Prep DB/env/Prisma without starting Next |
-| `npm run dev` | Next only (Postgres already running) |
-| `npm run db:up` / `db:down` | Start/stop Postgres manually |
-| `npm run db:logs` | Tail Postgres logs |
+| `npm run local` | DB + Next |
+| `npm run setup` | Prep DB/env/Prisma only |
+| `npm run dev` | Next only |
+| `npm test` | Unit tests |
+| `npm run test:integration` | API/DB integration tests |
+| `npm run test:e2e` | Playwright smoke (server must be up) |
 
-Optional: `PORT=3005 npm run local` to force a specific port.
+## Monorepo layout
+
+| Path | Role |
+|------|------|
+| `packages/contracts` | Shared Zod schemas / DTOs |
+| `packages/domain` | Pure domain logic |
+| `packages/client` | Shared SPA (`FoodTrackerApp`) |
+| `apps/ios` | Capacitor + Vite iOS host |
+| `src/app/api/v1` | Authenticated JSON API |
+| `src/app/[[...slug]]` | Website host for the SPA |
+
+## iOS (Capacitor)
+
+```bash
+cp apps/ios/.env.example apps/ios/.env
+# Set VITE_API_BASE_URL to your Next origin (ngrok/staging/production)
+
+npm run ios:build
+npm run ios:sync   # requires Xcode + pods
+npm run ios:open
+```
+
+Details: [apps/ios/README.md](apps/ios/README.md). Release builds **must not** set Capacitor `server.url`.
 
 ## Stack
 
-- Next.js 15 (App Router) + TypeScript + Tailwind CSS v4
-- PostgreSQL via Docker Compose (`localhost:5433` → container `5432`)
-- Prisma 7 (`@prisma/adapter-pg`)
+- Next.js 16 (App Router) + shared React client + React Query + React Router
+- PostgreSQL + Prisma 7
+- Better Auth (cookie web sessions + OAuth bearer for iOS / MCP)
+- Capacitor 7 for App Store packaging
 
-Default DB credentials (local only): user/password/db = `foodtracker`.
+## Privacy
 
-### Scan Label (OCR)
-
-Plus → **Scan Label** uses OpenAI `gpt-4o-mini` vision. Add to `.env`:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-On a phone, open the app over **HTTPS** (e.g. ngrok) so the camera permission prompt works.
-
-```bash
-npm run db:migrate   # apply Prisma migrations
-npm run db:seed      # default user + sample custom foods
-```
-
-### Database
-
-| Command | Purpose |
-|---------|---------|
-| `npm run db:migrate` | Create/apply migrations (`prisma migrate dev`) |
-| `npm run db:seed` | Seed default user + sample foods |
-| `npm run db:reset` | Reset DB, re-apply migrations, seed |
-
-## Testing
-
-| Command | What |
-|---------|------|
-| `npm test` | Unit tests (no DB) |
-| `npm run test:db:prepare` | Create `foodtracker_test` + migrate (needs Docker) |
-| `npm run test:integration` | Integration tests against `DATABASE_URL_TEST` |
-
-Add `DATABASE_URL_TEST` to `.env` (see `.env.example`). Integration tests truncate the test DB only — never point `DATABASE_URL_TEST` at your main `foodtracker` database.
-
-## Troubleshooting
-
-**“Docker is not running”** — open Docker Desktop, wait until it’s idle, then `npm run local` again.
-
-**DB auth / role errors** — confirm `.env` uses port **5433** (not 5432). A different Postgres on 5432 is common on macOS.
-
-**Wrong app on localhost:3000** — another project is bound to 3000; use the URL `npm run local` prints (it auto-selects a free port).
+Draft policy: [/privacy.html](public/privacy.html). Replace contact details before submission.
