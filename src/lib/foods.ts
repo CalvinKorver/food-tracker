@@ -445,3 +445,36 @@ export async function createFoodEntry(input: {
     },
   });
 }
+
+/**
+ * Rescale an entry's servings + nutrient snapshots by newQuantity / oldQuantity.
+ * Keeps food snapshot, unit, and logged date; meal can move.
+ */
+export async function updateFoodEntry(
+  userId: string,
+  entryId: string,
+  input: { quantity: number; meal: MealType },
+) {
+  const entry = await prisma.foodEntry.findFirst({
+    where: { id: entryId, userId },
+  });
+  if (!entry) return null;
+
+  const ratio = input.quantity / entry.quantityValue;
+
+  return prisma.foodEntry.update({
+    where: { id: entry.id },
+    data: {
+      meal: input.meal,
+      quantityValue: input.quantity,
+      servings: entry.servings * ratio,
+      caloriesSnapshot: entry.caloriesSnapshot * ratio,
+      proteinGSnapshot: entry.proteinGSnapshot * ratio,
+      carbsGSnapshot: entry.carbsGSnapshot * ratio,
+      fatGSnapshot: entry.fatGSnapshot * ratio,
+      fiberGSnapshot: entry.fiberGSnapshot * ratio,
+      sugarGSnapshot: entry.sugarGSnapshot * ratio,
+      sodiumMgSnapshot: entry.sodiumMgSnapshot * ratio,
+    },
+  });
+}

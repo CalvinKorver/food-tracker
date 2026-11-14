@@ -6,7 +6,7 @@ import {
   mealLabel,
   type MealType,
 } from "@food-tracker/domain";
-import type { FoodListItem, UsdaSearchHit } from "@food-tracker/contracts";
+import type { DiaryEntryDto, FoodListItem, UsdaSearchHit } from "@food-tracker/contracts";
 import { MEAL_TYPES } from "@food-tracker/contracts";
 import { useApi } from "../../config";
 
@@ -15,6 +15,7 @@ type AddFoodSheetProps = {
   loggedOnKey: string;
   meal: MealType;
   initialFoodId?: string | null;
+  editEntry?: DiaryEntryDto | null;
   onClose: () => void;
   onCreatedCustom: () => void;
 };
@@ -24,17 +25,23 @@ export function AddFoodSheet({
   loggedOnKey,
   meal,
   initialFoodId,
+  editEntry = null,
   onClose,
   onCreatedCustom,
 }: AddFoodSheetProps) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"recents" | "all">("recents");
+  const isEditing = Boolean(editEntry);
+  const [tab, setTab] = useState<"recents" | "favorites" | "all">("recents");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selected, setSelected] = useState<FoodListItem | null>(null);
-  const [quantity, setQuantity] = useState("1");
-  const [pickedMeal, setPickedMeal] = useState<MealType>(meal);
+  const [quantity, setQuantity] = useState(
+    editEntry ? String(editEntry.quantityValue) : "1",
+  );
+  const [pickedMeal, setPickedMeal] = useState<MealType>(
+    editEntry?.meal ?? meal,
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,22 +52,28 @@ export function AddFoodSheet({
   const recents = useQuery({
     queryKey: ["foods", "recents"],
     queryFn: () => api.listFoods({ tab: "recents" }),
+    enabled: !isEditing,
+  });
+  const favorites = useQuery({
+    queryKey: ["foods", "favorites"],
+    queryFn: () => api.listFoods({ tab: "favorites" }),
+    enabled: !isEditing && tab === "favorites",
   });
   const allFoods = useQuery({
     queryKey: ["foods", "all"],
     queryFn: () => api.listFoods({ tab: "all" }),
-    enabled: tab === "all",
+    enabled: !isEditing && tab === "all",
   });
 
   const trimmed = query.trim();
   const usda = useQuery({
     queryKey: ["usda", debouncedQuery],
     queryFn: () => api.searchUsda(debouncedQuery),
-    enabled: debouncedQuery.length >= 3,
+    enabled: !isEditing && debouncedQuery.length >= 3,
   });
 
   useEffect(() => {
-    if (!initialFoodId) return;
+    if (!initialFoodId || isEditing) return;
     let cancelled = false;
     void api.getFood(initialFoodId).then((food) => {
       if (!cancelled) setSelected(food);
@@ -68,9 +81,14 @@ export function AddFoodSheet({
     return () => {
       cancelled = true;
     };
-  }, [api, initialFoodId]);
+  }, [api, initialFoodId, isEditing]);
 
-  const list = tab === "recents" ? recents.data ?? [] : allFoods.data ?? [];
+  const list =
+    tab === "recents"
+      ? recents.data ?? []
+      : tab === "favorites"
+        ? favorites.data ?? []
+        : allFoods.data ?? [];
   const filtered = useMemo(() => {
     const q = trimmed.toLowerCase();
     if (!q) return list;
@@ -98,6 +116,19 @@ export function AddFoodSheet({
     onError: (err: Error) => setError(err.message),
   });
 
+  const update = useMutation({
+    mutationFn: () =>
+      api.updateEntry(editEntry!.id, {
+        quantity: Number(quantity),
+        meal: pickedMeal,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["diary"] });
+      onClose();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
   const selectUsda = useMutation({
     mutationFn: (fdcId: string) => api.selectUsda(fdcId),
     onSuccess: (result) => {
@@ -107,36 +138,58 @@ export function AddFoodSheet({
     onError: (err: Error) => setError(err.message),
   });
 
+  const showServings = isEditing || selected;
+  const saving = isEditing ? update.isPending : add.isPending;
+  const foodName = isEditing
+    ? editEntry!.foodNameSnapshot
+    : selected?.name ?? "";
+  const foodBrand = isEditing ? null : selected?.brand;
+  const perServingCalories = isEditing
+    ? editEntry!.caloriesSnapshot / editEntry!.quantityValue
+    : selected?.calories ?? 0;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
       <div className="relative flex h-dvh w-full max-w-[var(--app-max-width)] flex-col overflow-hidden bg-bg shadow-2xl">
         <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
           <button
             type="button"
-            onClick={selected ? () => setSelected(null) : onClose}
+            onClick={
+              selected && !isEditing ? () => setSelected(null) : onClose
+            }
             className="text-[17px] text-accent"
           >
-            {selected ? "Back" : "Close"}
+            {selected && !isEditing ? "Back" : "Close"}
           </button>
           <h2 className="text-[17px] font-semibold">
-            {selected ? "Servings" : `Add to ${mealLabel(pickedMeal)}`}
+            {isEditing
+              ? "Edit entry"
+              : selected
+                ? "Servings"
+                : `Add to ${mealLabel(pickedMeal)}`}
           </h2>
           <span className="w-12" />
         </header>
 
-        {selected ? (
+        {showServings ? (
           <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 pb-8">
             <div>
-              <p className="text-lg font-semibold">{selected.name}</p>
-              {selected.brand ? (
-                <p className="text-sm text-text-muted">{selected.brand}</p>
+              <p className="text-lg font-semibold">{foodName}</p>
+              {foodBrand ? (
+                <p className="text-sm text-text-muted">{foodBrand}</p>
               ) : null}
               <p className="mt-1 text-sm text-text-muted">
-                {formatQuantityLabel(1, "serving")} · {formatNutrient(selected.calories)} kcal
+                {formatQuantityLabel(
+                  1,
+                  isEditing ? editEntry!.quantityUnit : "serving",
+                )}{" "}
+                · {formatNutrient(perServingCalories)} kcal
               </p>
             </div>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-text-muted">Servings</span>
+              <span className="text-text-muted">
+                {isEditing ? "Amount" : "Servings"}
+              </span>
               <input
                 type="number"
                 min="0.01"
@@ -163,11 +216,17 @@ export function AddFoodSheet({
             {error ? <p className="text-sm text-danger">{error}</p> : null}
             <button
               type="button"
-              disabled={add.isPending || !(Number(quantity) > 0)}
-              onClick={() => add.mutate()}
+              disabled={saving || !(Number(quantity) > 0)}
+              onClick={() => (isEditing ? update.mutate() : add.mutate())}
               className="rounded-xl bg-accent px-4 py-3 text-[17px] font-semibold text-white disabled:opacity-60"
             >
-              {add.isPending ? "Adding…" : `Add to ${mealLabel(pickedMeal)}`}
+              {saving
+                ? isEditing
+                  ? "Saving…"
+                  : "Adding…"
+                : isEditing
+                  ? "Save changes"
+                  : `Add to ${mealLabel(pickedMeal)}`}
             </button>
           </div>
         ) : (
@@ -180,7 +239,13 @@ export function AddFoodSheet({
                 className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] text-text outline-none focus:border-accent"
               />
               <div className="mt-3 flex gap-2">
-                {(["recents", "all"] as const).map((id) => (
+                {(
+                  [
+                    ["recents", "Recents"],
+                    ["favorites", "Favorites"],
+                    ["all", "All"],
+                  ] as const
+                ).map(([id, label]) => (
                   <button
                     key={id}
                     type="button"
@@ -191,7 +256,7 @@ export function AddFoodSheet({
                       color: tab === id ? "var(--text)" : "var(--text-muted)",
                     }}
                   >
-                    {id === "recents" ? "Recents" : "All"}
+                    {label}
                   </button>
                 ))}
               </div>

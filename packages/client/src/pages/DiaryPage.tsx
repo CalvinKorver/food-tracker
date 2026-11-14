@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -107,9 +108,11 @@ function DayTargetsCard({
 function EntryRow({
   entry,
   dateKey,
+  onEdit,
 }: {
   entry: DiaryEntryDto;
   dateKey: string;
+  onEdit: (entry: DiaryEntryDto) => void;
 }) {
   const api = useApi();
   const queryClient = useQueryClient();
@@ -122,6 +125,7 @@ function EntryRow({
   return (
     <SwipeToDeleteRow
       onDelete={() => del.mutateAsync()}
+      onEdit={() => onEdit(entry)}
       disabled={del.isPending}
     >
       <div className="flex items-start gap-3 px-4 py-3">
@@ -147,8 +151,16 @@ export function DiaryPage() {
   const navigate = useNavigate();
   const api = useApi();
   const { user } = useAuth();
+  const [editingEntry, setEditingEntry] = useState<DiaryEntryDto | null>(null);
   const add = search.get("add");
-  const addMeal: MealType | null = add && isMealType(add) ? add : add ? "snack" : null;
+  const addMeal: MealType | null =
+    editingEntry
+      ? null
+      : add && isMealType(add)
+        ? add
+        : add
+          ? "snack"
+          : null;
   const foodId = search.get("foodId");
 
   const diary = useQuery({
@@ -203,7 +215,12 @@ export function DiaryPage() {
                     </p>
                   ) : (
                     group.entries.map((entry) => (
-                      <EntryRow key={entry.id} entry={entry} dateKey={date} />
+                      <EntryRow
+                        key={entry.id}
+                        entry={entry}
+                        dateKey={date}
+                        onEdit={setEditingEntry}
+                      />
                     ))
                   )}
                 </div>
@@ -213,7 +230,16 @@ export function DiaryPage() {
         </>
       ) : null}
 
-      {addMeal ? (
+      {editingEntry ? (
+        <AddFoodSheet
+          dateKey={date}
+          loggedOnKey={day?.dateKey ?? date}
+          meal={editingEntry.meal}
+          editEntry={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onCreatedCustom={() => undefined}
+        />
+      ) : addMeal ? (
         <AddFoodSheet
           dateKey={date}
           loggedOnKey={day?.dateKey ?? date}

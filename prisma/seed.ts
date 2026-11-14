@@ -288,12 +288,27 @@ async function main() {
   }
 
   const loggedOn = todayDateInZone(user.timezone);
-  await prisma.foodEntry.deleteMany({
+  // Never wipe diary data. Demo meals only when the day is empty.
+  const existingToday = await prisma.foodEntry.count({
     where: { userId: user.id, loggedOn },
   });
 
-  const dayPlan: { key: (typeof seedFoods)[number]["key"]; meal: MealType }[] =
-    [
+  console.log("Seeded user:", user.email, user.id);
+  console.log("Seeded credential account for email/password login");
+  console.log("Seeded foods:", oatmeal.name, "|", chicken.name);
+  console.log("Seeded favorite:", chicken.name);
+
+  if (existingToday > 0) {
+    console.log(
+      "Skipped seeding today:",
+      loggedOn.toISOString().slice(0, 10),
+      `(${existingToday} existing entr${existingToday === 1 ? "y" : "ies"})`,
+    );
+  } else {
+    const dayPlan: {
+      key: (typeof seedFoods)[number]["key"];
+      meal: MealType;
+    }[] = [
       { key: "bagel-cream-cheese", meal: MealType.breakfast },
       { key: "chicken-caesar-wrap", meal: MealType.lunch },
       { key: "trail-mix", meal: MealType.snack },
@@ -301,47 +316,43 @@ async function main() {
       { key: "choc-chip-cookie", meal: MealType.snack },
     ];
 
-  for (const row of dayPlan) {
-    const food = foodsByKey[row.key]!;
-    await prisma.foodEntry.create({
-      data: {
-        userId: user.id,
-        foodId: food.id,
-        loggedOn,
-        meal: row.meal,
-        servings: 1,
-        quantityValue: 1,
-        quantityUnit: "serving(s)",
-        foodNameSnapshot: food.name,
-        caloriesSnapshot: food.calories,
-        proteinGSnapshot: food.proteinG,
-        carbsGSnapshot: food.carbsG,
-        fatGSnapshot: food.fatG,
-        fiberGSnapshot: food.fiberG,
-        sugarGSnapshot: food.sugarG,
-        sodiumMgSnapshot: food.sodiumMg,
-      },
-    });
+    for (const row of dayPlan) {
+      const food = foodsByKey[row.key]!;
+      await prisma.foodEntry.create({
+        data: {
+          userId: user.id,
+          foodId: food.id,
+          loggedOn,
+          meal: row.meal,
+          servings: 1,
+          quantityValue: 1,
+          quantityUnit: "serving(s)",
+          foodNameSnapshot: food.name,
+          caloriesSnapshot: food.calories,
+          proteinGSnapshot: food.proteinG,
+          carbsGSnapshot: food.carbsG,
+          fatGSnapshot: food.fatG,
+          fiberGSnapshot: food.fiberG,
+          sugarGSnapshot: food.sugarG,
+          sodiumMgSnapshot: food.sodiumMg,
+        },
+      });
+    }
+
+    const dayCals = seedFoods.reduce((s, f) => s + f.calories, 0);
+    const dayProtein = seedFoods.reduce((s, f) => s + f.proteinG, 0);
+    const dayFat = seedFoods.reduce((s, f) => s + f.fatG, 0);
+    const fatPct = Math.round((dayFat / 66.67) * 100);
+    console.log(
+      "Seeded today:",
+      loggedOn.toISOString().slice(0, 10),
+      `${dayCals}/2000 kcal, ${dayProtein}/150g protein, ${dayFat}g fat (~${fatPct}%), nag on`,
+    );
+    console.log(
+      "Seeded day foods:",
+      seedFoods.map((f) => f.name).join(" | "),
+    );
   }
-
-  const dayCals = seedFoods.reduce((s, f) => s + f.calories, 0);
-  const dayProtein = seedFoods.reduce((s, f) => s + f.proteinG, 0);
-  const dayFat = seedFoods.reduce((s, f) => s + f.fatG, 0);
-  const fatPct = Math.round((dayFat / 66.67) * 100);
-
-  console.log("Seeded user:", user.email, user.id);
-  console.log("Seeded credential account for email/password login");
-  console.log("Seeded foods:", oatmeal.name, "|", chicken.name);
-  console.log(
-    "Seeded day foods:",
-    seedFoods.map((f) => f.name).join(" | "),
-  );
-  console.log("Seeded favorite:", chicken.name);
-  console.log(
-    "Seeded today:",
-    loggedOn.toISOString().slice(0, 10),
-    `${dayCals}/2000 kcal, ${dayProtein}/150g protein, ${dayFat}g fat (~${fatPct}%), nag on`,
-  );
 
   const {
     API_V1_SCOPES,

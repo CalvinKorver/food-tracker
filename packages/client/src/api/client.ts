@@ -10,6 +10,7 @@ import type {
   OcrFoodPrefill,
   OffSearchHit,
   SessionUserDto,
+  UpdateFoodEntryInput,
   UsdaSearchHit,
   UserGoals,
 } from "@food-tracker/contracts";
@@ -130,6 +131,12 @@ export function createApiClient({
     addEntry: (input: AddFoodEntryInput) =>
       request<DiaryEntryDto>("/api/v1/entries", {
         method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    updateEntry: (id: string, input: UpdateFoodEntryInput) =>
+      request<DiaryEntryDto>(`/api/v1/entries/${id}`, {
+        method: "PATCH",
         body: JSON.stringify(input),
       }),
 

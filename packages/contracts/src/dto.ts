@@ -139,6 +139,11 @@ export type AddFoodEntryInput = {
   selectedUnit?: string;
 };
 
+export type UpdateFoodEntryInput = {
+  quantity: number;
+  meal: MealType;
+};
+
 export type CreateRecipeInput = {
   name: string;
   servingsPerRecipe: number;

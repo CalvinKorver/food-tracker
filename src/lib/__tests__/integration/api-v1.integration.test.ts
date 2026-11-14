@@ -210,6 +210,90 @@ describe("api v1 routes", () => {
     expect(foods.data[0].name).toBe("Oats");
   });
 
+  it("patches an entry quantity and meal through the route handler", async () => {
+    const user = await createTestUser();
+    const other = await createTestUser({ email: "other-api@example.com" });
+    const token = await createTestAccessToken(user.id);
+    const otherToken = await createTestAccessToken(other.id);
+    const food = await createCustomFood(user.id, {
+      name: "Eggs",
+      brand: null,
+      servingQty: 1,
+      servingUnit: "large",
+      calories: 70,
+      proteinG: 6,
+      carbsG: 0,
+      fatG: 5,
+      fiberG: 0,
+      sugarG: 0,
+      sodiumMg: 70,
+    });
+
+    const entry = await createFoodEntry({
+      userId: user.id,
+      foodId: food.id,
+      loggedOn: new Date("2026-11-06"),
+      meal: MealType.breakfast,
+      quantity: 1,
+      unitMode: "serving",
+    });
+
+    const { PATCH } = await import("@/app/api/v1/entries/[id]/route");
+    const patchResponse = await PATCH(
+      apiRequest(`/api/v1/entries/${entry.id}`, {
+        token,
+        method: "PATCH",
+        body: JSON.stringify({ quantity: 2, meal: "lunch" }),
+      }),
+      { params: Promise.resolve({ id: entry.id }) },
+    );
+    expect(patchResponse.status).toBe(200);
+    const patched = await patchResponse.json();
+    expect(patched.ok).toBe(true);
+    expect(patched.data.quantityValue).toBe(2);
+    expect(patched.data.meal).toBe("lunch");
+    expect(patched.data.caloriesSnapshot).toBe(140);
+
+    const { GET } = await import("@/app/api/v1/diary/[date]/route");
+    const diaryResponse = await GET(
+      apiRequest("/api/v1/diary/2026-11-06", { token }),
+      { params: Promise.resolve({ date: "2026-11-06" }) },
+    );
+    const diary = await diaryResponse.json();
+    expect(diary.data.totals.calories).toBe(140);
+
+    const invalid = await PATCH(
+      apiRequest(`/api/v1/entries/${entry.id}`, {
+        token,
+        method: "PATCH",
+        body: JSON.stringify({ quantity: 0, meal: "lunch" }),
+      }),
+      { params: Promise.resolve({ id: entry.id }) },
+    );
+    expect(invalid.status).toBe(400);
+
+    const denied = await PATCH(
+      apiRequest(`/api/v1/entries/${entry.id}`, {
+        token: otherToken,
+        method: "PATCH",
+        body: JSON.stringify({ quantity: 3, meal: "dinner" }),
+      }),
+      { params: Promise.resolve({ id: entry.id }) },
+    );
+    expect(denied.status).toBe(404);
+
+    const missingId = crypto.randomUUID();
+    const missing = await PATCH(
+      apiRequest(`/api/v1/entries/${missingId}`, {
+        token,
+        method: "PATCH",
+        body: JSON.stringify({ quantity: 1, meal: "snack" }),
+      }),
+      { params: Promise.resolve({ id: missingId }) },
+    );
+    expect(missing.status).toBe(404);
+  });
+
   it("creates a custom food and returns a FoodListItem", async () => {
     const user = await createTestUser();
     const token = await createTestAccessToken(user.id);

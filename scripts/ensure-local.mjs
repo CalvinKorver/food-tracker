@@ -100,7 +100,9 @@ async function main() {
   console.log("Applying migrations…");
   await run("npx", ["prisma", "migrate", "deploy"]);
 
-  console.log("Seeding database (idempotent)…");
+  // Seed is safe for diary (skips days that already have entries) but still
+  // upserts the local demo user/oauth client. Never run against production.
+  console.log("Seeding local database…");
   await run("npx", ["prisma", "db", "seed"]);
 
   console.log("Local prerequisites ready.");

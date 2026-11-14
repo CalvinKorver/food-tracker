@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createCustomFood } from "@/lib/custom-food";
-import { createFoodEntry } from "@/lib/foods";
+import { createFoodEntry, updateFoodEntry } from "@/lib/foods";
 import { deleteFoodEntry, getDiaryDay } from "@/lib/diary";
 import { MealType } from "@/generated/prisma/client";
 import { createTestUser, resetTestDb } from "../helpers/db";
@@ -93,5 +93,59 @@ describe("diary integration", () => {
     day = await getDiaryDay(user.id, loggedOn);
     expect(day.allEntries).toHaveLength(0);
     expect(day.totals.calories).toBe(0);
+  });
+
+  it("updateFoodEntry rescales snapshots and can move meal", async () => {
+    const user = await createTestUser();
+    const other = await createTestUser({ email: "other@example.com" });
+    const food = await createCustomFood(user.id, {
+      name: "Yogurt",
+      brand: null,
+      servingQty: 1,
+      servingUnit: "cup",
+      calories: 100,
+      proteinG: 10,
+      carbsG: 12,
+      fatG: 2,
+      fiberG: 0,
+      sugarG: 8,
+      sodiumMg: 40,
+    });
+
+    const loggedOn = new Date("2026-11-06");
+    const entry = await createFoodEntry({
+      userId: user.id,
+      foodId: food.id,
+      loggedOn,
+      meal: MealType.breakfast,
+      quantity: 1,
+      unitMode: "serving",
+    });
+
+    const updated = await updateFoodEntry(user.id, entry.id, {
+      quantity: 2,
+      meal: MealType.snack,
+    });
+    expect(updated).not.toBeNull();
+    expect(updated!.quantityValue).toBe(2);
+    expect(updated!.meal).toBe(MealType.snack);
+    expect(updated!.caloriesSnapshot).toBe(200);
+    expect(updated!.proteinGSnapshot).toBe(20);
+    expect(updated!.quantityUnit).toBe(entry.quantityUnit);
+
+    const day = await getDiaryDay(user.id, loggedOn);
+    expect(day.totals.calories).toBe(200);
+    expect(day.meals.find((m) => m.meal === MealType.snack)?.entries).toHaveLength(
+      1,
+    );
+    expect(
+      day.meals.find((m) => m.meal === MealType.breakfast)?.entries,
+    ).toHaveLength(0);
+
+    const denied = await updateFoodEntry(other.id, entry.id, {
+      quantity: 3,
+      meal: MealType.lunch,
+    });
+    expect(denied).toBeNull();
   });
 });

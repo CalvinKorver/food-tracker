@@ -110,6 +110,11 @@ export const addFoodEntrySchema = z.object({
   selectedUnit: z.string().optional(),
 });
 
+export const updateFoodEntrySchema = z.object({
+  quantity: z.number().positive(),
+  meal: mealTypeSchema,
+});
+
 export const createRecipeSchema = z.object({
   name: z.string().trim().min(1),
   servingsPerRecipe: z.number().positive(),

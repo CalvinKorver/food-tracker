@@ -9,23 +9,27 @@ import {
   type ReactNode,
 } from "react";
 
-const PARK_X = -72;
+const PARK_DELETE_X = -72;
+const PARK_EDIT_X = 72;
 const OPEN_EVENT = "swipe-to-delete-open";
 
 type SwipeToDeleteRowProps = {
   children: ReactNode;
   onDelete: () => Promise<unknown>;
+  onEdit?: () => void;
   disabled?: boolean;
   className?: string;
 };
 
 /**
- * Pointer-based swipe-to-delete (no Motion). Motion's drag attrs were
+ * Pointer-based swipe actions (no Motion). Motion's drag attrs were
  * rewritten by Safari before hydrate and caused attribute mismatches.
+ * Left swipe = delete; optional right swipe = edit.
  */
 export function SwipeToDeleteRow({
   children,
   onDelete,
+  onEdit,
   disabled = false,
   className = "",
 }: SwipeToDeleteRowProps) {
@@ -39,8 +43,9 @@ export function SwipeToDeleteRow({
   const draggingRef = useRef(false);
   const lockedRef = useRef<"x" | "y" | null>(null);
   const deletingRef = useRef(false);
-  const [parked, setParked] = useState(false);
+  const [parked, setParked] = useState<"delete" | "edit" | null>(null);
   const [pending, startTransition] = useTransition();
+  const canEdit = Boolean(onEdit);
 
   const setX = useCallback((next: number, animate: boolean) => {
     xRef.current = next;
@@ -55,7 +60,9 @@ export function SwipeToDeleteRow({
   const snapTo = useCallback(
     (target: number) => {
       setX(target, true);
-      setParked(target === PARK_X);
+      if (target === PARK_DELETE_X) setParked("delete");
+      else if (target === PARK_EDIT_X) setParked("edit");
+      else setParked(null);
     },
     [setX],
   );
@@ -100,6 +107,12 @@ export function SwipeToDeleteRow({
     });
   }, [disabled, onDelete, pending, setX, snapTo]);
 
+  const commitEdit = useCallback(() => {
+    if (disabled || !onEdit) return;
+    snapTo(0);
+    onEdit();
+  }, [disabled, onEdit, snapTo]);
+
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (disabled || pending || deletingRef.current) return;
     if (event.button !== 0 && event.pointerType === "mouse") return;
@@ -128,7 +141,9 @@ export function SwipeToDeleteRow({
     if (lockedRef.current !== "x") return;
 
     event.preventDefault();
-    const next = Math.min(0, Math.max(-widthRef.current, dx));
+    const minX = -widthRef.current;
+    const maxX = canEdit ? PARK_EDIT_X : 0;
+    const next = Math.min(maxX, Math.max(minX, dx));
     setX(next, false);
   };
 
@@ -149,7 +164,15 @@ export function SwipeToDeleteRow({
       commitDelete();
       return;
     }
-    snapTo(current <= PARK_X * 0.45 ? PARK_X : 0);
+    if (current < 0) {
+      snapTo(current <= PARK_DELETE_X * 0.45 ? PARK_DELETE_X : 0);
+      return;
+    }
+    if (canEdit && current > 0) {
+      snapTo(current >= PARK_EDIT_X * 0.45 ? PARK_EDIT_X : 0);
+      return;
+    }
+    snapTo(0);
   };
 
   return (
@@ -163,7 +186,7 @@ export function SwipeToDeleteRow({
       >
         <button
           type="button"
-          tabIndex={parked ? 0 : -1}
+          tabIndex={parked === "delete" ? 0 : -1}
           className="flex h-11 w-11 items-center justify-center rounded-full text-white"
           aria-label="Delete"
           onClick={(e) => {
@@ -175,6 +198,27 @@ export function SwipeToDeleteRow({
           <TrashIcon />
         </button>
       </div>
+
+      {canEdit ? (
+        <div
+          className="absolute inset-y-0 left-0 flex w-[72px] items-center justify-center bg-accent"
+          aria-hidden="true"
+        >
+          <button
+            type="button"
+            tabIndex={parked === "edit" ? 0 : -1}
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white"
+            aria-label="Edit"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              commitEdit();
+            }}
+          >
+            <EditIcon />
+          </button>
+        </div>
+      ) : null}
 
       <div
         ref={foregroundRef}
@@ -208,6 +252,25 @@ function TrashIcon() {
       <path d="M19 6l-1 14H6L5 6" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }
