@@ -1,6 +1,7 @@
 import { FoodSource } from "@/generated/prisma/client";
 import {
   rankUsdaHits,
+  rewriteUsdaSearchQuery,
   type RankedUsdaHit,
 } from "@/lib/sources/rank-usda-hits";
 import type { NormalizedFood } from "./types";
@@ -14,6 +15,8 @@ export type FdcSearchHit = {
   dataType: string | null;
   /** Per 100 g when present on the search payload. */
   caloriesPer100g: number | null;
+  /** FNDDS / Survey alternate names (e.g. barbecued). */
+  additionalDescriptions?: string | null;
 };
 
 export type { RankedUsdaHit };
@@ -51,12 +54,14 @@ type FdcSearchResponse = {
     brandOwner?: string | null;
     brandName?: string | null;
     dataType?: string;
+    additionalDescriptions?: string;
     foodNutrients?: FdcNutrientEntry[];
   }>;
 };
 
 const FDC_BASE = "https://api.nal.usda.gov/fdc/v1";
-const FDC_PAGE_SIZE = 20;
+const FDC_PAGE_SIZE = 50;
+const FDC_DATA_TYPES = ["Foundation", "SR Legacy", "Survey (FNDDS)"] as const;
 
 /** Common FDC nutrient ids (SR Legacy / Foundation). */
 const NUTRIENT_IDS = {
@@ -191,27 +196,7 @@ export function normalizeFdcFood(raw: FdcFoodDetail): NormalizedFood | null {
   };
 }
 
-export async function searchFdcFoods(
-  query: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<RankedUsdaHit[]> {
-  const trimmed = query.trim();
-  if (trimmed.length < 3) return [];
-
-  const params = new URLSearchParams({
-    api_key: apiKey(),
-    query: trimmed,
-    pageSize: String(FDC_PAGE_SIZE),
-    dataType: "Foundation,SR Legacy",
-  });
-  const res = await fetchImpl(`${FDC_BASE}/foods/search?${params}`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) {
-    throw new Error(`USDA FDC search failed (${res.status})`);
-  }
-
-  const data = (await res.json()) as FdcSearchResponse;
+function mapSearchHits(data: FdcSearchResponse): FdcSearchHit[] {
   const foods = Array.isArray(data.foods) ? data.foods : [];
   const hits: FdcSearchHit[] = [];
   for (const food of foods) {
@@ -226,7 +211,48 @@ export async function searchFdcFoods(
       brand,
       dataType: food.dataType ?? null,
       caloriesPer100g: searchCaloriesPer100g(food.foodNutrients),
+      additionalDescriptions: food.additionalDescriptions?.trim() || null,
     });
+  }
+  return hits;
+}
+
+async function fdcFoodsSearch(
+  query: string,
+  fetchImpl: typeof fetch,
+): Promise<FdcSearchHit[]> {
+  const params = new URLSearchParams({ api_key: apiKey() });
+  const res = await fetchImpl(`${FDC_BASE}/foods/search?${params}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      pageSize: FDC_PAGE_SIZE,
+      dataType: [...FDC_DATA_TYPES],
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`USDA FDC search failed (${res.status})`);
+  }
+  const data = (await res.json()) as FdcSearchResponse;
+  return mapSearchHits(data);
+}
+
+export async function searchFdcFoods(
+  query: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RankedUsdaHit[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+
+  const rewritten = rewriteUsdaSearchQuery(trimmed);
+  let hits =
+    rewritten != null ? await fdcFoodsSearch(rewritten, fetchImpl) : [];
+  if (hits.length === 0) {
+    hits = await fdcFoodsSearch(trimmed, fetchImpl);
   }
   return rankUsdaHits(hits, trimmed);
 }

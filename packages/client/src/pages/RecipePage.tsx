@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatNutrient } from "@food-tracker/domain";
+import {
+  formatNutrient,
+  formatQuantityLabel,
+  modeFromSelected,
+  optionLabel,
+  quantityMultiplier,
+  quantityUnitFromMode,
+  SERVING_UNIT_KEY,
+  unitOptionsFor,
+  type QuantityUnitMode,
+} from "@food-tracker/domain";
 import type { FoodListItem } from "@food-tracker/contracts";
 import { useApi } from "../config";
 import { SwipeToDeleteRow } from "../components/ui/SwipeToDeleteRow";
@@ -9,7 +19,30 @@ import { SwipeToDeleteRow } from "../components/ui/SwipeToDeleteRow";
 type Draft = {
   food: FoodListItem;
   quantity: number;
+  unitMode: QuantityUnitMode;
+  selectedUnit?: string;
 };
+
+function ingredientCalories(item: Draft): number {
+  try {
+    const mult = quantityMultiplier(
+      item.quantity,
+      item.unitMode,
+      item.food.servingQty,
+      item.food.servingsPerRecipe,
+      item.unitMode === "food"
+        ? {
+            foodServingUnit: item.food.servingUnit,
+            selectedUnit: item.selectedUnit,
+            portions: item.food.portions,
+          }
+        : undefined,
+    );
+    return item.food.calories * mult;
+  } catch {
+    return 0;
+  }
+}
 
 export function RecipePage() {
   const api = useApi();
@@ -20,6 +53,7 @@ export function RecipePage() {
   const [ingredients, setIngredients] = useState<Draft[]>([]);
   const [picking, setPicking] = useState(false);
   const [qtyById, setQtyById] = useState<Record<string, string>>({});
+  const [unitById, setUnitById] = useState<Record<string, string>>({});
 
   const foods = useQuery({
     queryKey: ["foods", "all"],
@@ -27,11 +61,7 @@ export function RecipePage() {
   });
 
   const totalCalories = useMemo(
-    () =>
-      ingredients.reduce(
-        (sum, item) => sum + item.food.calories * item.quantity,
-        0,
-      ),
+    () => ingredients.reduce((sum, item) => sum + ingredientCalories(item), 0),
     [ingredients],
   );
 
@@ -43,7 +73,9 @@ export function RecipePage() {
         ingredients: ingredients.map((item) => ({
           foodId: item.food.id,
           quantity: item.quantity,
-          unitMode: "serving" as const,
+          unitMode: item.unitMode,
+          selectedUnit:
+            item.unitMode === "food" ? item.selectedUnit : undefined,
         })),
       }),
     onSuccess: async () => {
@@ -104,27 +136,33 @@ export function RecipePage() {
           </p>
         ) : (
           <div className="overflow-hidden rounded-xl bg-surface">
-            {ingredients.map((item) => (
-              <SwipeToDeleteRow
-                key={item.food.id}
-                onDelete={async () => {
-                  setIngredients((rows) =>
-                    rows.filter((row) => row.food.id !== item.food.id),
-                  );
-                }}
-              >
-                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{item.food.name}</div>
-                    <div className="text-sm text-text-muted">
-                      {item.quantity} serving
-                      {item.quantity === 1 ? "" : "s"} ·{" "}
-                      {formatNutrient(item.food.calories * item.quantity)} kcal
+            {ingredients.map((item) => {
+              const unit = quantityUnitFromMode(
+                item.unitMode,
+                item.food.servingUnit,
+                item.selectedUnit,
+              );
+              return (
+                <SwipeToDeleteRow
+                  key={item.food.id}
+                  onDelete={async () => {
+                    setIngredients((rows) =>
+                      rows.filter((row) => row.food.id !== item.food.id),
+                    );
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{item.food.name}</div>
+                      <div className="text-sm text-text-muted">
+                        {formatQuantityLabel(item.quantity, unit)} ·{" "}
+                        {formatNutrient(ingredientCalories(item))} kcal
+                      </div>
                     </div>
                   </div>
-                </div>
-              </SwipeToDeleteRow>
-            ))}
+                </SwipeToDeleteRow>
+              );
+            })}
           </div>
         )}
         <p className="mt-2 text-sm text-text-muted">
@@ -165,45 +203,72 @@ export function RecipePage() {
               <span className="w-12" />
             </header>
             <div className="min-h-0 flex-1 overflow-auto">
-              {(foods.data ?? []).map((food) => (
-                <div
-                  key={food.id}
-                  className="flex items-center gap-3 border-b border-border px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{food.name}</div>
-                    <div className="text-sm text-text-muted">
-                      {formatNutrient(food.calories)} kcal / serving
-                    </div>
-                  </div>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="any"
-                    className="w-16 rounded-lg border border-border bg-surface px-2 py-1 text-sm"
-                    placeholder="1"
-                    value={qtyById[food.id] ?? "1"}
-                    onChange={(e) =>
-                      setQtyById((m) => ({ ...m, [food.id]: e.target.value }))
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-accent"
-                    onClick={() => {
-                      const quantity = Number(qtyById[food.id] ?? "1");
-                      if (!(quantity > 0)) return;
-                      setIngredients((rows) => [
-                        ...rows.filter((row) => row.food.id !== food.id),
-                        { food, quantity },
-                      ]);
-                      setPicking(false);
-                    }}
+              {(foods.data ?? []).map((food) => {
+                const options = unitOptionsFor(food);
+                const unit = unitById[food.id] ?? options[0] ?? SERVING_UNIT_KEY;
+                return (
+                  <div
+                    key={food.id}
+                    className="flex items-center gap-2 border-b border-border px-4 py-3"
                   >
-                    Add
-                  </button>
-                </div>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{food.name}</div>
+                      <div className="text-sm text-text-muted">
+                        {formatNutrient(food.calories)} kcal / serving
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      className="w-14 shrink-0 rounded-lg border border-border bg-surface px-2 py-1 text-sm"
+                      placeholder="1"
+                      value={qtyById[food.id] ?? "1"}
+                      onChange={(e) =>
+                        setQtyById((m) => ({ ...m, [food.id]: e.target.value }))
+                      }
+                    />
+                    <select
+                      className="max-w-[6.5rem] shrink-0 rounded-lg border border-border bg-surface px-1 py-1 text-sm"
+                      value={unit}
+                      onChange={(e) =>
+                        setUnitById((m) => ({
+                          ...m,
+                          [food.id]: e.target.value,
+                        }))
+                      }
+                    >
+                      {options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {optionLabel(opt)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="shrink-0 text-sm font-medium text-accent"
+                      onClick={() => {
+                        const quantity = Number(qtyById[food.id] ?? "1");
+                        if (!(quantity > 0)) return;
+                        const unitMode = modeFromSelected(unit);
+                        setIngredients((rows) => [
+                          ...rows.filter((row) => row.food.id !== food.id),
+                          {
+                            food,
+                            quantity,
+                            unitMode,
+                            selectedUnit:
+                              unitMode === "food" ? unit : undefined,
+                          },
+                        ]);
+                        setPicking(false);
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { FdcSearchHit } from "@/lib/sources/usda-fdc";
 import {
+  dataTypeBadge,
   friendlyUsdaName,
   rankUsdaHits,
+  rewriteUsdaSearchQuery,
   scoreUsdaHit,
   usdaStem,
 } from "@/lib/sources/rank-usda-hits";
@@ -14,6 +16,7 @@ function hit(
     brand: null,
     dataType: "SR Legacy",
     caloriesPer100g: 100,
+    additionalDescriptions: null,
     ...partial,
   };
 }
@@ -147,6 +150,78 @@ describe("rankUsdaHits", () => {
     expect(skin!.variants.length).toBeGreaterThanOrEqual(1);
     expect(ranked.indexOf(skin!)).toBeGreaterThan(1);
   });
+
+  it("puts survey grilled above foundation raw for a grilled query", () => {
+    const page = [
+      hit({
+        fdcId: "2646171",
+        name: "Chicken, thigh, boneless, skinless, raw",
+        dataType: "Foundation",
+        caloriesPer100g: 144,
+      }),
+      hit({
+        fdcId: "2706040",
+        name: "Chicken thigh, grilled without sauce, skin not eaten",
+        dataType: "Survey (FNDDS)",
+        caloriesPer100g: 192,
+      }),
+      hit({
+        fdcId: "2706041",
+        name: "Chicken thigh, grilled with sauce, skin eaten",
+        dataType: "Survey (FNDDS)",
+        caloriesPer100g: 233,
+      }),
+    ];
+    const ranked = rankUsdaHits(page, "chicken thigh Grilled");
+    expect(ranked[0]?.fdcId).toBe("2706040");
+    expect(ranked.map((r) => r.fdcId).slice(0, 2)).not.toContain("2646171");
+  });
+
+  it("prefers literal grilled over broiled synonym", () => {
+    const page = [
+      hit({
+        fdcId: "broiled",
+        name: "Chicken breast, baked, broiled, or roasted, skin not eaten",
+        dataType: "Survey (FNDDS)",
+        caloriesPer100g: 165,
+      }),
+      hit({
+        fdcId: "grilled",
+        name: "Chicken breast, grilled without sauce, skin not eaten",
+        dataType: "Survey (FNDDS)",
+        caloriesPer100g: 176,
+      }),
+    ];
+    const ranked = rankUsdaHits(page, "grilled chicken breast");
+    expect(ranked[0]?.fdcId).toBe("grilled");
+  });
+});
+
+describe("rewriteUsdaSearchQuery", () => {
+  it("rewrites grilled food words with prep OR group", () => {
+    expect(rewriteUsdaSearchQuery("chicken thigh Grilled")).toContain(
+      "+chicken +thigh",
+    );
+    expect(rewriteUsdaSearchQuery("chicken thigh Grilled")).toContain(
+      "description:grilled",
+    );
+    expect(rewriteUsdaSearchQuery("chicken thigh Grilled")).toContain(
+      "description:broiled",
+    );
+  });
+
+  it("returns null when no preparation word is present", () => {
+    expect(rewriteUsdaSearchQuery("chicken thigh")).toBeNull();
+    expect(rewriteUsdaSearchQuery("banana")).toBeNull();
+  });
+});
+
+describe("dataTypeBadge", () => {
+  it("labels survey foods", () => {
+    expect(dataTypeBadge("Survey (FNDDS)")).toBe("Survey");
+    expect(dataTypeBadge("Foundation")).toBe("Foundation");
+    expect(dataTypeBadge("SR Legacy")).toBe("SR");
+  });
 });
 
 describe("scoreUsdaHit", () => {
@@ -160,5 +235,50 @@ describe("scoreUsdaHit", () => {
       "chicken thigh",
     );
     expect(foundation).toBeGreaterThan(sr);
+  });
+
+  it("scores grilled above raw foundation", () => {
+    const grilled = scoreUsdaHit(
+      {
+        name: "Chicken thigh, grilled without sauce, skin not eaten",
+        dataType: "Survey (FNDDS)",
+      },
+      "chicken thigh Grilled",
+    );
+    const raw = scoreUsdaHit(
+      {
+        name: "Chicken, thigh, boneless, skinless, raw",
+        dataType: "Foundation",
+      },
+      "chicken thigh Grilled",
+    );
+    expect(grilled).toBeGreaterThan(raw);
+  });
+
+  it("scores synonym broiled above raw and below literal grilled", () => {
+    const query = "grilled chicken breast";
+    const grilled = scoreUsdaHit(
+      {
+        name: "Chicken breast, grilled without sauce, skin not eaten",
+        dataType: "Survey (FNDDS)",
+      },
+      query,
+    );
+    const broiled = scoreUsdaHit(
+      {
+        name: "Chicken breast, baked, broiled, or roasted, skin not eaten",
+        dataType: "Survey (FNDDS)",
+      },
+      query,
+    );
+    const raw = scoreUsdaHit(
+      {
+        name: "Chicken, breast, boneless, skinless, raw",
+        dataType: "Foundation",
+      },
+      query,
+    );
+    expect(grilled).toBeGreaterThan(broiled);
+    expect(broiled).toBeGreaterThan(raw);
   });
 });

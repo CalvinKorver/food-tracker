@@ -33,6 +33,127 @@ const QUERY_OPTIONAL_NOISE = [
   { re: /\b(popeyes|kfc|mcdonald)/i, penalty: 50 },
 ] as const;
 
+type PrepGroup = {
+  id: string;
+  /** Words that count as saying this prep in the query. */
+  queryWords: string[];
+  /** Exact prep words that score the full literal bonus. */
+  literal: string[];
+  /** USDA wording that should rank under the literal, above raw. */
+  synonyms: string[];
+};
+
+const PREP_GROUPS: PrepGroup[] = [
+  {
+    id: "grilled",
+    queryWords: ["grilled", "broiled", "barbecued", "barbecue", "bbq"],
+    literal: ["grilled"],
+    synonyms: ["broiled", "barbecued", "barbecue", "bbq"],
+  },
+  {
+    id: "baked",
+    queryWords: ["baked", "roasted"],
+    literal: ["baked", "roasted"],
+    synonyms: [],
+  },
+  {
+    id: "fried",
+    queryWords: ["fried"],
+    literal: ["fried"],
+    synonyms: [],
+  },
+  {
+    id: "steamed",
+    queryWords: ["steamed"],
+    literal: ["steamed"],
+    synonyms: [],
+  },
+  {
+    id: "boiled",
+    queryWords: ["boiled"],
+    literal: ["boiled"],
+    synonyms: [],
+  },
+  {
+    id: "raw",
+    queryWords: ["raw"],
+    literal: ["raw"],
+    synonyms: [],
+  },
+];
+
+const OTHER_PREP_WORDS = [
+  "grilled",
+  "broiled",
+  "barbecued",
+  "barbecue",
+  "bbq",
+  "baked",
+  "roasted",
+  "fried",
+  "steamed",
+  "boiled",
+  "raw",
+];
+
+type PrepIntent = {
+  id: string;
+  literal: string[];
+  synonyms: string[];
+};
+
+function queryTokens(query: string): string[] {
+  return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function wordBoundary(word: string): RegExp {
+  return new RegExp(
+    `\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+    "i",
+  );
+}
+
+function hasWord(text: string, word: string): boolean {
+  return wordBoundary(word).test(text);
+}
+
+/** "from raw" means the cooked food started raw, not that it is served raw. */
+function isServedRaw(text: string): boolean {
+  return /\braw\b/i.test(text.replace(/\bfrom raw\b/gi, ""));
+}
+
+function prepIntent(query: string): PrepIntent | null {
+  const words = new Set(queryTokens(query));
+  const group = PREP_GROUPS.find((g) =>
+    g.queryWords.some((w) => words.has(w)),
+  );
+  if (!group) return null;
+
+  const used = group.queryWords.filter((w) => words.has(w));
+  const expansion = [...new Set([...group.literal, ...group.synonyms])];
+  // Mutual literals (baked/roasted) keep equal weight; grilled synonyms stay secondary.
+  if (group.synonyms.length === 0) {
+    return { id: group.id, literal: group.literal, synonyms: [] };
+  }
+  const literal = used.length > 0 ? used : group.literal;
+  const synonyms = expansion.filter((w) => !literal.includes(w));
+  return { id: group.id, literal, synonyms };
+}
+
+/** USDA operator rewrite when the query names a preparation. */
+export function rewriteUsdaSearchQuery(query: string): string | null {
+  const intent = prepIntent(query);
+  if (!intent) return null;
+  const prepWords = new Set(PREP_GROUPS.flatMap((group) => group.queryWords));
+  const food = queryTokens(query).filter((word) => !prepWords.has(word));
+  if (food.length === 0) return null;
+  const ors = [...intent.literal, ...intent.synonyms].flatMap((word) => [
+    `description:${word}`,
+    `additionalDescriptions:${word}`,
+  ]);
+  return `${food.map((word) => `+${word}`).join(" ")} +(${ors.join(" ")})`;
+}
+
 function segments(description: string): string[] {
   return description
     .split(",")
@@ -79,7 +200,7 @@ export function usdaStem(description: string): string {
     .join("|");
 }
 
-export function scoreUsdaHit(
+function baseScoreUsdaHit(
   hit: Pick<FdcSearchHit, "name" | "dataType">,
   query: string,
 ): number {
@@ -111,9 +232,47 @@ export function scoreUsdaHit(
   return score;
 }
 
+export function scoreUsdaHit(
+  hit: Pick<FdcSearchHit, "name" | "dataType" | "additionalDescriptions">,
+  query: string,
+): number {
+  let score = baseScoreUsdaHit(hit, query);
+  const intent = prepIntent(query);
+  if (!intent) return score;
+
+  const text = `${hit.name} ${hit.additionalDescriptions ?? ""}`;
+  const literal = intent.literal.some((word) => hasWord(text, word));
+  const synonym = intent.synonyms.some((word) => hasWord(text, word));
+  if (literal) score += 160;
+  else if (synonym) score += 70;
+
+  const matched = literal || synonym;
+  const allowed = new Set([...intent.literal, ...intent.synonyms]);
+  const conflict = OTHER_PREP_WORDS.some(
+    (word) =>
+      !allowed.has(word) &&
+      hasWord(text, word) &&
+      !(word === "raw" && !isServedRaw(text)),
+  );
+  if (!matched && conflict) score -= 160;
+  if (intent.id !== "raw" && isServedRaw(text)) score -= 160;
+
+  const wantsSkin = /\bskin\b/.test(query.toLowerCase());
+  const alreadySkinless = /boneless[,\s]+skinless|meat only/i.test(hit.name);
+  if (
+    !wantsSkin &&
+    !alreadySkinless &&
+    /skin not eaten|without skin/i.test(text)
+  ) {
+    score += 25;
+  }
+  return score;
+}
+
 export function dataTypeBadge(dataType: string | null): string {
   if (dataType === "Foundation") return "Foundation";
   if (dataType === "SR Legacy") return "SR";
+  if (dataType === "Survey (FNDDS)") return "Survey";
   return "USDA";
 }
 
@@ -152,21 +311,23 @@ export function rankUsdaHits(
     else byStem.set(row.stem, [row]);
   }
 
-  const clusters: RankedUsdaHit[] = [];
+  const clusters: Array<{ hit: RankedUsdaHit; score: number }> = [];
   for (const group of byStem.values()) {
     group.sort((a, b) => b.score - a.score || a.hit.name.localeCompare(b.hit.name));
     const [head, ...rest] = group;
     if (!head) continue;
     clusters.push({
-      ...toLeaf(head.hit, head.displayName),
-      variants: rest.map((r) => toLeaf(r.hit, r.displayName)),
+      score: head.score,
+      hit: {
+        ...toLeaf(head.hit, head.displayName),
+        variants: rest.map((r) => toLeaf(r.hit, r.displayName)),
+      },
     });
   }
 
-  clusters.sort((a, b) => {
-    const sa = scoreUsdaHit(a, query);
-    const sb = scoreUsdaHit(b, query);
-    return sb - sa || a.displayName.localeCompare(b.displayName);
-  });
-  return clusters;
+  clusters.sort(
+    (a, b) =>
+      b.score - a.score || a.hit.displayName.localeCompare(b.hit.displayName),
+  );
+  return clusters.map((c) => c.hit);
 }

@@ -4,9 +4,20 @@ import {
   formatNutrient,
   formatQuantityLabel,
   mealLabel,
+  modeFromSelected,
+  netCarbs,
+  optionLabel,
+  quantityMultiplier,
+  SERVING_UNIT_KEY,
+  unitOptionsFor,
   type MealType,
 } from "@food-tracker/domain";
-import type { DiaryEntryDto, FoodListItem, UsdaSearchHit } from "@food-tracker/contracts";
+import type {
+  DiaryEntryDto,
+  FoodListItem,
+  OffSearchHit,
+  UsdaSearchHit,
+} from "@food-tracker/contracts";
 import { MEAL_TYPES } from "@food-tracker/contracts";
 import { useApi } from "../../config";
 
@@ -39,15 +50,32 @@ export function AddFoodSheet({
   const [quantity, setQuantity] = useState(
     editEntry ? String(editEntry.quantityValue) : "1",
   );
+  const [selectedUnit, setSelectedUnit] = useState(SERVING_UNIT_KEY);
   const [pickedMeal, setPickedMeal] = useState<MealType>(
     editEntry?.meal ?? meal,
   );
   const [error, setError] = useState<string | null>(null);
+  const [offEnabled, setOffEnabled] = useState(false);
+
+  const unitOptions = useMemo(
+    () => (selected ? unitOptionsFor(selected) : [SERVING_UNIT_KEY]),
+    [selected],
+  );
+
+  useEffect(() => {
+    if (!selected) return;
+    setSelectedUnit(unitOptions[0] ?? SERVING_UNIT_KEY);
+    setQuantity("1");
+  }, [selected, unitOptions]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => setDebouncedQuery(query.trim()), 350);
     return () => window.clearTimeout(handle);
   }, [query]);
+
+  useEffect(() => {
+    setOffEnabled(false);
+  }, [debouncedQuery]);
 
   const recents = useQuery({
     queryKey: ["foods", "recents"],
@@ -70,6 +98,23 @@ export function AddFoodSheet({
     queryKey: ["usda", debouncedQuery],
     queryFn: () => api.searchUsda(debouncedQuery),
     enabled: !isEditing && debouncedQuery.length >= 3,
+  });
+
+  useEffect(() => {
+    if (
+      !isEditing &&
+      debouncedQuery.length >= 3 &&
+      usda.isSuccess &&
+      (usda.data?.foods.length ?? 0) === 0
+    ) {
+      setOffEnabled(true);
+    }
+  }, [isEditing, debouncedQuery, usda.isSuccess, usda.data?.foods.length]);
+
+  const off = useQuery({
+    queryKey: ["off", debouncedQuery],
+    queryFn: () => api.searchOff(debouncedQuery),
+    enabled: !isEditing && offEnabled && debouncedQuery.length >= 3,
   });
 
   useEffect(() => {
@@ -99,6 +144,8 @@ export function AddFoodSheet({
     );
   }, [list, trimmed]);
 
+  const unitMode = modeFromSelected(selectedUnit);
+
   const add = useMutation({
     mutationFn: () =>
       api.addEntry({
@@ -107,7 +154,8 @@ export function AddFoodSheet({
         loggedOnKey,
         meal: pickedMeal,
         quantity: Number(quantity),
-        unitMode: "serving",
+        unitMode,
+        selectedUnit: unitMode === "food" ? selectedUnit : undefined,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["diary"] });
@@ -138,15 +186,82 @@ export function AddFoodSheet({
     onError: (err: Error) => setError(err.message),
   });
 
+  const selectOff = useMutation({
+    mutationFn: (barcode: string) => api.lookupBarcode(barcode),
+    onSuccess: (result) => {
+      setSelected(result.food);
+      setError(null);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const selectingRemote = selectUsda.isPending || selectOff.isPending;
+  const showOffButton =
+    trimmed.length >= 3 &&
+    usda.isSuccess &&
+    (usda.data?.foods.length ?? 0) > 0 &&
+    !offEnabled;
+  const showOffSection = offEnabled;
+
   const showServings = isEditing || selected;
   const saving = isEditing ? update.isPending : add.isPending;
   const foodName = isEditing
     ? editEntry!.foodNameSnapshot
     : selected?.name ?? "";
   const foodBrand = isEditing ? null : selected?.brand;
-  const perServingCalories = isEditing
-    ? editEntry!.caloriesSnapshot / editEntry!.quantityValue
-    : selected?.calories ?? 0;
+  const amount = Number(quantity);
+  const amountValid = Number.isFinite(amount) && amount > 0;
+
+  const preview = useMemo(() => {
+    if (isEditing && editEntry) {
+      const ratio = amountValid
+        ? amount / editEntry.quantityValue
+        : 0;
+      return {
+        calories: editEntry.caloriesSnapshot * ratio,
+        proteinG: editEntry.proteinGSnapshot * ratio,
+        netCarbsG: netCarbs(
+          editEntry.carbsGSnapshot * ratio,
+          editEntry.fiberGSnapshot * ratio,
+        ),
+        fatG: editEntry.fatGSnapshot * ratio,
+      };
+    }
+    if (!selected || !amountValid) {
+      return { calories: 0, proteinG: 0, netCarbsG: 0, fatG: 0 };
+    }
+    try {
+      const mult = quantityMultiplier(
+        amount,
+        unitMode,
+        selected.servingQty,
+        selected.servingsPerRecipe,
+        unitMode === "food"
+          ? {
+              foodServingUnit: selected.servingUnit,
+              selectedUnit,
+              portions: selected.portions,
+            }
+          : undefined,
+      );
+      return {
+        calories: selected.calories * mult,
+        proteinG: selected.proteinG * mult,
+        netCarbsG: netCarbs(selected.carbsG * mult, selected.fiberG * mult),
+        fatG: selected.fatG * mult,
+      };
+    } catch {
+      return { calories: 0, proteinG: 0, netCarbsG: 0, fatG: 0 };
+    }
+  }, [
+    amount,
+    amountValid,
+    editEntry,
+    isEditing,
+    selected,
+    selectedUnit,
+    unitMode,
+  ]);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
@@ -178,27 +293,77 @@ export function AddFoodSheet({
               {foodBrand ? (
                 <p className="text-sm text-text-muted">{foodBrand}</p>
               ) : null}
-              <p className="mt-1 text-sm text-text-muted">
-                {formatQuantityLabel(
-                  1,
-                  isEditing ? editEntry!.quantityUnit : "serving",
-                )}{" "}
-                · {formatNutrient(perServingCalories)} kcal
-              </p>
+              {selected ? (
+                <p className="mt-1 text-sm text-text-muted">
+                  {formatQuantityLabel(selected.servingQty, selected.servingUnit)}{" "}
+                  · {formatNutrient(selected.calories)} kcal / serving
+                </p>
+              ) : editEntry ? (
+                <p className="mt-1 text-sm text-text-muted">
+                  Logged as{" "}
+                  {formatQuantityLabel(
+                    editEntry.quantityValue,
+                    editEntry.quantityUnit,
+                  )}
+                </p>
+              ) : null}
             </div>
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-text-muted">
-                {isEditing ? "Amount" : "Servings"}
-              </span>
-              <input
-                type="number"
-                min="0.01"
-                step="any"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] text-text outline-none focus:border-accent"
-              />
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="text-text-muted">Amount</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] text-text outline-none focus:border-accent"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="text-text-muted">Unit</span>
+                {isEditing && editEntry ? (
+                  <div className="rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] text-text-muted">
+                    {optionLabel(editEntry.quantityUnit)}
+                  </div>
+                ) : (
+                  <select
+                    value={selectedUnit}
+                    onChange={(e) => setSelectedUnit(e.target.value)}
+                    className="rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] text-text outline-none focus:border-accent"
+                  >
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {optionLabel(unit)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            </div>
+            <div className="rounded-xl bg-surface px-4 py-3">
+              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-text-muted">
+                This entry
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[15px]">
+                <span className="text-text-muted">Energy</span>
+                <span className="text-right tabular-nums">
+                  {formatNutrient(preview.calories)} kcal
+                </span>
+                <span className="text-text-muted">Protein</span>
+                <span className="text-right tabular-nums">
+                  {formatNutrient(preview.proteinG)} g
+                </span>
+                <span className="text-text-muted">Net carbs</span>
+                <span className="text-right tabular-nums">
+                  {formatNutrient(preview.netCarbsG)} g
+                </span>
+                <span className="text-text-muted">Fat</span>
+                <span className="text-right tabular-nums">
+                  {formatNutrient(preview.fatG)} g
+                </span>
+              </div>
+            </div>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-text-muted">Meal</span>
               <select
@@ -216,7 +381,7 @@ export function AddFoodSheet({
             {error ? <p className="text-sm text-danger">{error}</p> : null}
             <button
               type="button"
-              disabled={saving || !(Number(quantity) > 0)}
+              disabled={saving || !amountValid}
               onClick={() => (isEditing ? update.mutate() : add.mutate())}
               className="rounded-xl bg-accent px-4 py-3 text-[17px] font-semibold text-white disabled:opacity-60"
             >
@@ -297,7 +462,7 @@ export function AddFoodSheet({
                       <button
                         key={hit.fdcId}
                         type="button"
-                        disabled={selectUsda.isPending}
+                        disabled={selectingRemote}
                         onClick={() => selectUsda.mutate(hit.fdcId)}
                         className="mb-1 block w-full rounded-xl bg-surface px-3 py-2.5 text-left"
                       >
@@ -311,6 +476,50 @@ export function AddFoodSheet({
                       </button>
                     ))
                   )}
+                  {showOffButton ? (
+                    <button
+                      type="button"
+                      className="mt-3 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-text"
+                      onClick={() => setOffEnabled(true)}
+                    >
+                      Search packaged foods (Open Food Facts)
+                    </button>
+                  ) : null}
+                  {showOffSection ? (
+                    <div className="mt-3">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Open Food Facts
+                      </p>
+                      {off.isLoading ? (
+                        <p className="text-sm text-text-muted">
+                          Searching packaged foods…
+                        </p>
+                      ) : off.isError ? (
+                        <p className="text-sm text-danger">
+                          {(off.error as Error).message}
+                        </p>
+                      ) : (off.data?.foods.length ?? 0) === 0 ? (
+                        <p className="text-sm text-text-muted">
+                          No packaged matches
+                        </p>
+                      ) : (
+                        off.data?.foods.map((hit: OffSearchHit) => (
+                          <button
+                            key={hit.barcode}
+                            type="button"
+                            disabled={selectingRemote}
+                            onClick={() => selectOff.mutate(hit.barcode)}
+                            className="mb-1 block w-full rounded-xl bg-surface px-3 py-2.5 text-left"
+                          >
+                            <div className="truncate font-medium">{hit.name}</div>
+                            <div className="text-xs text-text-muted">
+                              {hit.brand ?? "Open Food Facts"}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

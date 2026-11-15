@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   formatQuantityLabel,
   isWeightUnit,
+  modeFromSelected,
+  optionLabel,
   quantityMultiplier,
   quantityUnitFromMode,
   toGrams,
+  unitOptionsFor,
 } from "./quantity";
 
 describe("quantityMultiplier", () => {
@@ -114,5 +117,38 @@ describe("formatQuantityLabel", () => {
   it("formats portion labels", () => {
     expect(formatQuantityLabel(1, "1 large")).toBe("1 large");
     expect(formatQuantityLabel(2, "1 large")).toBe("2 × 1 large");
+  });
+});
+
+describe("unitOptionsFor", () => {
+  it("includes serving, grams, native weight, portions, and recipe", () => {
+    expect(
+      unitOptionsFor({
+        servingUnit: "oz",
+        servingsPerRecipe: 4,
+        portions: [{ label: "1 tbsp", grams: 21 }],
+      }),
+    ).toEqual(["serving", "g", "oz", "1 tbsp", "recipe"]);
+  });
+
+  it("skips duplicate gram native and empty portions", () => {
+    expect(
+      unitOptionsFor({
+        servingUnit: "g",
+        servingsPerRecipe: null,
+        portions: [{ label: "bad", grams: 0 }],
+      }),
+    ).toEqual(["serving", "g"]);
+  });
+});
+
+describe("modeFromSelected / optionLabel", () => {
+  it("maps selection to unit mode and labels", () => {
+    expect(modeFromSelected("serving")).toBe("serving");
+    expect(modeFromSelected("recipe")).toBe("recipe");
+    expect(modeFromSelected("g")).toBe("food");
+    expect(optionLabel("serving")).toBe("serving(s)");
+    expect(optionLabel("recipe")).toBe("recipe(s)");
+    expect(optionLabel("g")).toBe("g");
   });
 });

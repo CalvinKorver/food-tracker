@@ -30,6 +30,47 @@ export function toGrams(quantity: number, unit: string): number | null {
 
 export type QuantityPortion = { label: string; grams: number };
 
+/** Minimal food shape for building unit picker options. */
+export type UnitOptionsFood = {
+  servingUnit: string;
+  servingsPerRecipe: number | null;
+  portions: QuantityPortion[];
+};
+
+export function unitOptionsFor(food: UnitOptionsFood): string[] {
+  const options: string[] = [SERVING_UNIT_KEY];
+  const native = food.servingUnit.trim();
+  if (isWeightUnit(native)) {
+    options.push("g");
+    if (normalizeUnitKey(native) !== "g") {
+      options.push(native);
+    }
+  } else if (native && normalizeUnitKey(native) !== SERVING_UNIT_KEY) {
+    options.push(native);
+  }
+  for (const portion of food.portions) {
+    if (portion.label && portion.grams > 0 && !options.includes(portion.label)) {
+      options.push(portion.label);
+    }
+  }
+  if (food.servingsPerRecipe != null && food.servingsPerRecipe > 0) {
+    options.push(RECIPE_UNIT_KEY);
+  }
+  return options;
+}
+
+export function modeFromSelected(selected: string): QuantityUnitMode {
+  if (selected === SERVING_UNIT_KEY) return "serving";
+  if (selected === RECIPE_UNIT_KEY) return "recipe";
+  return "food";
+}
+
+export function optionLabel(unit: string): string {
+  if (unit === SERVING_UNIT_KEY) return "serving(s)";
+  if (unit === RECIPE_UNIT_KEY) return "recipe(s)";
+  return unit;
+}
+
 export function quantityMultiplier(
   quantity: number,
   unitMode: QuantityUnitMode,

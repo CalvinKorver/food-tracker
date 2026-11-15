@@ -105,8 +105,52 @@ describe("searchFdcFoods / fetchFdcFood", () => {
       },
     ]);
     const calledUrl = String(fetchImpl.mock.calls.at(0)?.at(0) ?? "");
+    const init = fetchImpl.mock.calls.at(0)?.at(1) as RequestInit;
     expect(calledUrl).toContain("api_key=test-key");
-    expect(calledUrl).toContain("dataType=Foundation%2CSR+Legacy");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(String(init.body));
+    expect(body.dataType).toEqual([
+      "Foundation",
+      "SR Legacy",
+      "Survey (FNDDS)",
+    ]);
+    expect(body.pageSize).toBe(50);
+    expect(body.query).toBe("egg");
+  });
+
+  it("rewrites grilled queries and falls back when rewrite is empty", async () => {
+    vi.stubEnv("USDA_FDC_API_KEY", "test-key");
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
+      if (String(body.query).includes("description:grilled")) {
+        return Response.json({ foods: [] });
+      }
+      return Response.json({
+        foods: [
+          {
+            fdcId: 2705968,
+            description: "Chicken breast, grilled without sauce, skin not eaten",
+            dataType: "Survey (FNDDS)",
+            additionalDescriptions: "barbecued without sauce",
+            foodNutrients: [
+              { nutrientId: 1008, nutrientName: "Energy", unitName: "KCAL", value: 176 },
+            ],
+          },
+        ],
+      });
+    });
+    const hits = await searchFdcFoods(
+      "grilled chicken breast",
+      fetchImpl as typeof fetch,
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse(
+      String((fetchImpl.mock.calls.at(0)?.at(1) as RequestInit).body),
+    );
+    expect(firstBody.query).toContain("+chicken +breast");
+    expect(firstBody.query).toContain("description:grilled");
+    expect(hits[0]?.fdcId).toBe("2705968");
+    expect(hits[0]?.dataType).toBe("Survey (FNDDS)");
   });
 
   it("reads kcal from flat search nutrients and ignores kJ", () => {
