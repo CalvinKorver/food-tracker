@@ -105,10 +105,10 @@ describe("searchFdcFoods / fetchFdcFood", () => {
       },
     ]);
     const calledUrl = String(fetchImpl.mock.calls.at(0)?.at(0) ?? "");
-    const init = fetchImpl.mock.calls.at(0)?.at(1) as RequestInit;
+    const init = (fetchImpl.mock.calls.at(0)?.at(1) ?? {}) as RequestInit;
     expect(calledUrl).toContain("api_key=test-key");
     expect(init.method).toBe("POST");
-    const body = JSON.parse(String(init.body));
+    const body = JSON.parse(String(init.body ?? "{}"));
     expect(body.dataType).toEqual([
       "Foundation",
       "SR Legacy",
@@ -144,9 +144,8 @@ describe("searchFdcFoods / fetchFdcFood", () => {
       fetchImpl as typeof fetch,
     );
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    const firstBody = JSON.parse(
-      String((fetchImpl.mock.calls.at(0)?.at(1) as RequestInit).body),
-    );
+    const firstInit = (fetchImpl.mock.calls.at(0)?.at(1) ?? {}) as RequestInit;
+    const firstBody = JSON.parse(String(firstInit.body ?? "{}"));
     expect(firstBody.query).toContain("+chicken +breast");
     expect(firstBody.query).toContain("description:grilled");
     expect(hits[0]?.fdcId).toBe("2705968");
