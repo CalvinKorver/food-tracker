@@ -151,6 +151,7 @@ export const webBarcodeAdapter: BarcodeAdapter = {
     const trimmed = code?.trim() ?? "";
     return trimmed.length > 0 ? trimmed : null;
   },
+  dismiss() {},
 };
 
 export const webLifecycleAdapter: AppLifecycleAdapter = {

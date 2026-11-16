@@ -34,6 +34,8 @@ type AddFoodSheetProps = {
   loggedOnKey: string;
   meal: MealType;
   initialFoodId?: string | null;
+  /** Prefill servings immediately (e.g. barcode lookup result). */
+  initialFood?: FoodListItem | null;
   editEntry?: DiaryEntryDto | null;
   calorieNag?: CalorieNagContext | null;
   onClose: (opts?: { nagConceded?: boolean }) => void;
@@ -45,6 +47,7 @@ export function AddFoodSheet({
   loggedOnKey,
   meal,
   initialFoodId,
+  initialFood = null,
   editEntry = null,
   calorieNag = null,
   onClose,
@@ -53,7 +56,9 @@ export function AddFoodSheet({
   const api = useApi();
   const queryClient = useQueryClient();
   const isEditing = Boolean(editEntry);
-  const [selected, setSelected] = useState<FoodListItem | null>(null);
+  const [selected, setSelected] = useState<FoodListItem | null>(
+    initialFood ?? null,
+  );
   const [quantity, setQuantity] = useState(
     editEntry ? String(editEntry.quantityValue) : "1",
   );
@@ -77,6 +82,7 @@ export function AddFoodSheet({
 
   useEffect(() => {
     if (!initialFoodId || isEditing) return;
+    if (initialFood?.id === initialFoodId) return;
     let cancelled = false;
     void api.getFood(initialFoodId).then((food) => {
       if (!cancelled) setSelected(food);
@@ -84,7 +90,7 @@ export function AddFoodSheet({
     return () => {
       cancelled = true;
     };
-  }, [api, initialFoodId, isEditing]);
+  }, [api, initialFood, initialFoodId, isEditing]);
 
   const unitMode = modeFromSelected(selectedUnit);
 
@@ -121,7 +127,8 @@ export function AddFoodSheet({
     onError: (err: Error) => setError(err.message),
   });
 
-  const showServings = isEditing || selected;
+  const resolvingInitial = Boolean(initialFoodId) && !selected && !isEditing;
+  const showServings = isEditing || selected || resolvingInitial;
   const saving = isEditing ? update.isPending : add.isPending;
   const foodName = isEditing
     ? editEntry!.foodNameSnapshot
@@ -221,20 +228,19 @@ export function AddFoodSheet({
             <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
               <button
                 type="button"
-                onClick={
-                  selected && !isEditing
-                    ? () => setSelected(null)
-                    : () => onClose()
-                }
+                onClick={() => onClose()}
                 className="text-[17px] text-accent"
               >
-                {selected && !isEditing ? "Back" : "Close"}
+                Cancel
               </button>
               <h2 className="text-[17px] font-semibold">
                 {isEditing ? "Edit entry" : "Servings"}
               </h2>
               <span className="w-12" />
             </header>
+            {resolvingInitial ? (
+              <p className="px-4 pt-6 text-sm text-text-muted">Loading food…</p>
+            ) : (
             <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 pb-8">
               <div>
                 <p className="text-lg font-semibold">{foodName}</p>
@@ -347,6 +353,7 @@ export function AddFoodSheet({
                     : `Add to ${mealLabel(pickedMeal)}`}
               </button>
             </div>
+            )}
           </>
         ) : (
           <FoodSearchSheet

@@ -67,6 +67,12 @@ const SCAN_FORMATS = [
 ];
 
 const SCANNER_ACTIVE_CLASS = "barcode-scanner-active";
+let handoffModal: HTMLElement | null = null;
+
+function dismissHandoffModal(): void {
+  handoffModal?.remove();
+  handoffModal = null;
+}
 
 async function teardownScanner(): Promise<void> {
   document.documentElement.classList.remove(SCANNER_ACTIVE_CLASS);
@@ -113,7 +119,9 @@ function scanWithOverlay(allowCamera: boolean): Promise<string | null> {
           <button type="submit" class="barcode-scanner-btn barcode-scanner-btn--submit">Look up</button>
         </form>
       </div>
+      <p class="barcode-scanner-handoff-label">Looking up...</p>
     `;
+    dismissHandoffModal();
     document.body.append(modal);
 
     const cameraPane = modal.querySelector<HTMLElement>('[data-pane="camera"]')!;
@@ -126,8 +134,12 @@ function scanWithOverlay(allowCamera: boolean): Promise<string | null> {
       settled = true;
       session += 1;
       modal.inert = true;
+      if (value !== null) {
+        modal.classList.add("barcode-scanner-modal--handoff");
+        handoffModal = modal;
+      }
       await teardownScanner();
-      modal.remove();
+      if (value === null) modal.remove();
       resolve(value);
     };
 
@@ -209,6 +221,7 @@ export const iosBarcodeAdapter: PlatformAdapters["barcode"] = {
     }
     return scanWithOverlay(allowCamera);
   },
+  dismiss: dismissHandoffModal,
 };
 
 export const iosLifecycleAdapter: PlatformAdapters["lifecycle"] = {

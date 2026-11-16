@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import type { FoodListItem } from "@food-tracker/contracts";
 import { DEFAULT_MEAL_WINDOWS, suggestedMealForLocalTime } from "@food-tracker/domain";
 import { useAuth } from "../../auth";
 import { useApi } from "../../config";
@@ -18,9 +19,23 @@ export function AppShell() {
   const api = useApi();
   const { barcode, camera } = usePlatform();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const [addOpen, setAddOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const handoffPending = useRef(false);
+
+  useEffect(() => {
+    const selectedFood = (
+      location.state as { selectedFood?: FoodListItem } | null
+    )?.selectedFood;
+    if (!handoffPending.current || !selectedFood) return;
+    const frame = requestAnimationFrame(() => {
+      handoffPending.current = false;
+      barcode.dismiss();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [barcode, location]);
 
   const hideChrome =
     pathname === "/sign-in" ||
@@ -40,12 +55,19 @@ export function AppShell() {
 
   async function onScanBarcode() {
     setBusy(null);
-    const code = await barcode.scan();
-    if (!code) return;
     try {
+      const code = await barcode.scan();
+      if (!code) {
+        barcode.dismiss();
+        return;
+      }
       const { food } = await api.lookupBarcode(code);
-      navigate(addPath({ foodId: food.id }));
+      handoffPending.current = true;
+      navigate(addPath({ foodId: food.id }), {
+        state: { selectedFood: food },
+      });
     } catch (err) {
+      barcode.dismiss();
       setBusy(err instanceof Error ? err.message : "Barcode lookup failed");
     }
   }

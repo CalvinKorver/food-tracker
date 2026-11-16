@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   formatNutrient,
@@ -8,7 +15,12 @@ import {
   isMealType,
   type MealType,
 } from "@food-tracker/domain";
-import type { DiaryEntryDto, DayTotals, UserGoals } from "@food-tracker/contracts";
+import type {
+  DayTotals,
+  DiaryEntryDto,
+  FoodListItem,
+  UserGoals,
+} from "@food-tracker/contracts";
 import { useAuth } from "../auth";
 import { useApi } from "../config";
 import { AddFoodSheet } from "../components/foods/AddFoodSheet";
@@ -149,6 +161,7 @@ function EntryRow({
 export function DiaryPage() {
   const { date = "today" } = useParams();
   const [search] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const api = useApi();
   const { user } = useAuth();
@@ -163,6 +176,13 @@ export function DiaryPage() {
           ? "snack"
           : null;
   const foodId = search.get("foodId");
+  const selectedFood = (
+    location.state as { selectedFood?: FoodListItem } | null
+  )?.selectedFood;
+  const initialFood =
+    selectedFood && (!foodId || selectedFood.id === foodId)
+      ? selectedFood
+      : null;
   const nagConceded = search.get("nagConceded") === "1";
 
   const diary = useQuery({
@@ -259,6 +279,7 @@ export function DiaryPage() {
           loggedOnKey={day?.dateKey ?? date}
           meal={addMeal}
           initialFoodId={foodId}
+          initialFood={initialFood}
           calorieNag={calorieNag}
           onClose={(opts) =>
             navigate(

@@ -15,8 +15,9 @@ export type CameraAdapter = {
 };
 
 export type BarcodeAdapter = {
-  /** Return a barcode string, or null if cancelled. */
+  /** Return a barcode string, or null if cancelled. When non-null, any native/custom overlay remains mounted until `dismiss()` is called. */
   scan(): Promise<string | null>;
+  dismiss(): void;
 };
 
 export type AppLifecycleAdapter = {

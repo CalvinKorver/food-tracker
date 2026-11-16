@@ -185,3 +185,25 @@ html.barcode-scanner-active body {
   width: 100%;
   margin-top: 0.25rem;
 }
+
+.barcode-scanner-handoff-label {
+  display: none;
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-muted, rgb(255 255 255 / 0.6));
+}
+
+.barcode-scanner-modal--handoff {
+  background: var(--bg, #000000);
+  align-items: center;
+  justify-content: center;
+}
+
+.barcode-scanner-modal--handoff .barcode-scanner-pane,
+.barcode-scanner-modal--handoff .barcode-scanner-btn--close {
+  display: none;
+}
+
+.barcode-scanner-modal--handoff .barcode-scanner-handoff-label {
+  display: block;
+}
