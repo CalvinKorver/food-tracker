@@ -8,7 +8,7 @@ HTTPS URL (production Railway origin):
 https://<your-host>/api/mcp
 ```
 
-Sign in with your Food Tracker account when the host opens the browser OAuth flow. Approve access on `/consent`.
+Sign in with your Hungry account when the host opens the browser OAuth flow. Approve access on `/consent`.
 
 ### Claude
 

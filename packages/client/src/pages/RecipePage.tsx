@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   formatNutrient,
   formatQuantityLabel,
@@ -14,6 +14,7 @@ import {
 } from "@food-tracker/domain";
 import type { FoodListItem } from "@food-tracker/contracts";
 import { useApi } from "../config";
+import { FoodSearchSheet } from "../components/foods/FoodSearchSheet";
 import { SwipeToDeleteRow } from "../components/ui/SwipeToDeleteRow";
 
 type Draft = {
@@ -52,13 +53,20 @@ export function RecipePage() {
   const [servings, setServings] = useState("1");
   const [ingredients, setIngredients] = useState<Draft[]>([]);
   const [picking, setPicking] = useState(false);
-  const [qtyById, setQtyById] = useState<Record<string, string>>({});
-  const [unitById, setUnitById] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<FoodListItem | null>(null);
+  const [quantity, setQuantity] = useState("1");
+  const [selectedUnit, setSelectedUnit] = useState(SERVING_UNIT_KEY);
 
-  const foods = useQuery({
-    queryKey: ["foods", "all"],
-    queryFn: () => api.listFoods({ tab: "all" }),
-  });
+  const unitOptions = useMemo(
+    () => (selected ? unitOptionsFor(selected) : [SERVING_UNIT_KEY]),
+    [selected],
+  );
+
+  useEffect(() => {
+    if (!selected) return;
+    setSelectedUnit(unitOptions[0] ?? SERVING_UNIT_KEY);
+    setQuantity("1");
+  }, [selected, unitOptions]);
 
   const totalCalories = useMemo(
     () => ingredients.reduce((sum, item) => sum + ingredientCalories(item), 0),
@@ -83,6 +91,43 @@ export function RecipePage() {
       navigate("/foods");
     },
   });
+
+  function closePicker() {
+    setPicking(false);
+    setSelected(null);
+    setQuantity("1");
+    setSelectedUnit(SERVING_UNIT_KEY);
+  }
+
+  function addIngredient() {
+    if (!selected) return;
+    const amount = Number(quantity);
+    if (!(amount > 0)) return;
+    const unitMode = modeFromSelected(selectedUnit);
+    setIngredients((rows) => [
+      ...rows.filter((row) => row.food.id !== selected.id),
+      {
+        food: selected,
+        quantity: amount,
+        unitMode,
+        selectedUnit: unitMode === "food" ? selectedUnit : undefined,
+      },
+    ]);
+    closePicker();
+  }
+
+  const amount = Number(quantity);
+  const amountValid = Number.isFinite(amount) && amount > 0;
+  const unitMode = modeFromSelected(selectedUnit);
+  const previewCalories = useMemo(() => {
+    if (!selected || !amountValid) return 0;
+    return ingredientCalories({
+      food: selected,
+      quantity: amount,
+      unitMode,
+      selectedUnit: unitMode === "food" ? selectedUnit : undefined,
+    });
+  }, [amount, amountValid, selected, selectedUnit, unitMode]);
 
   return (
     <div className="flex flex-col gap-4 pt-1">
@@ -132,7 +177,7 @@ export function RecipePage() {
         </div>
         {ingredients.length === 0 ? (
           <p className="rounded-xl bg-surface px-4 py-3 text-sm text-text-muted">
-            Add at least one ingredient from your food list.
+            Search your foods or USDA to add ingredients.
           </p>
         ) : (
           <div className="overflow-hidden rounded-xl bg-surface">
@@ -190,86 +235,86 @@ export function RecipePage() {
 
       {picking ? (
         <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
-          <div className="flex h-dvh w-full max-w-[var(--app-max-width)] flex-col bg-bg">
-            <header className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
-              <button
-                type="button"
-                className="text-accent"
-                onClick={() => setPicking(false)}
-              >
-                Close
-              </button>
-              <h2 className="text-[17px] font-semibold">Pick a food</h2>
-              <span className="w-12" />
-            </header>
-            <div className="min-h-0 flex-1 overflow-auto">
-              {(foods.data ?? []).map((food) => {
-                const options = unitOptionsFor(food);
-                const unit = unitById[food.id] ?? options[0] ?? SERVING_UNIT_KEY;
-                return (
-                  <div
-                    key={food.id}
-                    className="flex items-center gap-2 border-b border-border px-4 py-3"
+          <div className="flex h-dvh w-full max-w-[var(--app-max-width)] flex-col overflow-hidden bg-bg">
+            {selected ? (
+              <>
+                <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="text-[17px] text-accent"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{food.name}</div>
-                      <div className="text-sm text-text-muted">
-                        {formatNutrient(food.calories)} kcal / serving
-                      </div>
-                    </div>
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      className="w-14 shrink-0 rounded-lg border border-border bg-surface px-2 py-1 text-sm"
-                      placeholder="1"
-                      value={qtyById[food.id] ?? "1"}
-                      onChange={(e) =>
-                        setQtyById((m) => ({ ...m, [food.id]: e.target.value }))
-                      }
-                    />
-                    <select
-                      className="max-w-[6.5rem] shrink-0 rounded-lg border border-border bg-surface px-1 py-1 text-sm"
-                      value={unit}
-                      onChange={(e) =>
-                        setUnitById((m) => ({
-                          ...m,
-                          [food.id]: e.target.value,
-                        }))
-                      }
-                    >
-                      {options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {optionLabel(opt)}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="shrink-0 text-sm font-medium text-accent"
-                      onClick={() => {
-                        const quantity = Number(qtyById[food.id] ?? "1");
-                        if (!(quantity > 0)) return;
-                        const unitMode = modeFromSelected(unit);
-                        setIngredients((rows) => [
-                          ...rows.filter((row) => row.food.id !== food.id),
-                          {
-                            food,
-                            quantity,
-                            unitMode,
-                            selectedUnit:
-                              unitMode === "food" ? unit : undefined,
-                          },
-                        ]);
-                        setPicking(false);
-                      }}
-                    >
-                      Add
-                    </button>
+                    Back
+                  </button>
+                  <h2 className="text-[17px] font-semibold">Amount</h2>
+                  <span className="w-12" />
+                </header>
+                <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 pb-8">
+                  <div>
+                    <p className="text-lg font-semibold">{selected.name}</p>
+                    {selected.brand ? (
+                      <p className="text-sm text-text-muted">{selected.brand}</p>
+                    ) : null}
+                    <p className="mt-1 text-sm text-text-muted">
+                      {formatQuantityLabel(
+                        selected.servingQty,
+                        selected.servingUnit,
+                      )}{" "}
+                      · {formatNutrient(selected.calories)} kcal / serving
+                    </p>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="text-text-muted">Amount</span>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="any"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        className="rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] outline-none focus:border-accent"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="text-text-muted">Unit</span>
+                      <select
+                        value={selectedUnit}
+                        onChange={(e) => setSelectedUnit(e.target.value)}
+                        className="rounded-xl border border-border bg-surface px-3 py-2.5 text-[17px] outline-none focus:border-accent"
+                      >
+                        {unitOptions.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {optionLabel(unit)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <p className="text-sm text-text-muted">
+                    {formatNutrient(previewCalories)} kcal for this ingredient
+                  </p>
+                  <button
+                    type="button"
+                    disabled={!amountValid}
+                    onClick={addIngredient}
+                    className="rounded-xl bg-accent px-4 py-3 text-[17px] font-semibold text-white disabled:opacity-60"
+                  >
+                    Add ingredient
+                  </button>
+                </div>
+              </>
+            ) : (
+              <FoodSearchSheet
+                title="Add ingredient"
+                onClose={closePicker}
+                onSelect={setSelected}
+                onCreateCustom={() =>
+                  navigate("/foods/new", {
+                    state: { returnTo: "/foods/recipes/new" },
+                  })
+                }
+              />
+            )}
           </div>
         </div>
       ) : null}

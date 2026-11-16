@@ -125,7 +125,7 @@ export const auth = betterAuth({
       resources: [
         {
           identifier: mcpResourceURL(),
-          name: "Food Tracker MCP",
+          name: "Hungry MCP",
           allowedScopes: [
             "openid",
             "profile",
@@ -136,7 +136,7 @@ export const auth = betterAuth({
         },
         {
           identifier: apiV1ResourceURL(),
-          name: "Food Tracker API",
+          name: "Hungry API",
           allowedScopes: [...API_V1_SCOPES],
         },
       ],

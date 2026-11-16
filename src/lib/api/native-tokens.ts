@@ -31,14 +31,14 @@ export async function ensureIosOauthClient(): Promise<void> {
       await prisma.oauthResource.upsert({
         where: { identifier: resource },
         update: {
-          name: "Food Tracker API",
+          name: "Hungry API",
           allowedScopes: scopes,
           disabled: false,
         },
         create: {
           id: crypto.randomUUID(),
           identifier: resource,
-          name: "Food Tracker API",
+          name: "Hungry API",
           allowedScopes: scopes,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -48,7 +48,7 @@ export async function ensureIosOauthClient(): Promise<void> {
       await prisma.oauthClient.upsert({
         where: { clientId: IOS_OAUTH_CLIENT_ID },
         update: {
-          name: "Food Tracker iOS",
+          name: "Hungry iOS",
           redirectUris: [IOS_OAUTH_REDIRECT_URI],
           grantTypes: ["authorization_code", "refresh_token"],
           responseTypes: ["code"],
@@ -61,7 +61,7 @@ export async function ensureIosOauthClient(): Promise<void> {
         create: {
           id: crypto.randomUUID(),
           clientId: IOS_OAUTH_CLIENT_ID,
-          name: "Food Tracker iOS",
+          name: "Hungry iOS",
           redirectUris: [IOS_OAUTH_REDIRECT_URI],
           grantTypes: ["authorization_code", "refresh_token"],
           responseTypes: ["code"],

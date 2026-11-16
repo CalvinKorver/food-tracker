@@ -6,19 +6,19 @@ different wording. Re-apply if Xcode regenerates the plist.
 
 | Key | Suggested text |
 | --- | --- |
-| `NSCameraUsageDescription` | Food Tracker uses the camera to scan barcodes and nutrition labels. |
-| `NSPhotoLibraryUsageDescription` | Food Tracker may access your photo library so you can choose a nutrition-label photo. |
-| `NSPhotoLibraryAddUsageDescription` | Food Tracker does not save photos to your library by default. |
+| `NSCameraUsageDescription` | Hungry uses the camera to scan barcodes and nutrition labels. |
+| `NSPhotoLibraryUsageDescription` | Hungry may access your photo library so you can choose a nutrition-label photo. |
+| `NSPhotoLibraryAddUsageDescription` | Hungry does not save photos to your library by default. |
 
 XML snippet:
 
 ```xml
 <key>NSCameraUsageDescription</key>
-<string>Food Tracker uses the camera to scan barcodes and nutrition labels.</string>
+<string>Hungry uses the camera to scan barcodes and nutrition labels.</string>
 <key>NSPhotoLibraryUsageDescription</key>
-<string>Food Tracker may access your photo library so you can choose a nutrition-label photo.</string>
+<string>Hungry may access your photo library so you can choose a nutrition-label photo.</string>
 <key>NSPhotoLibraryAddUsageDescription</key>
-<string>Food Tracker does not save photos to your library by default.</string>
+<string>Hungry does not save photos to your library by default.</string>
 ```
 
 Also register the OAuth redirect scheme (`foodtracker://oauth/callback`):

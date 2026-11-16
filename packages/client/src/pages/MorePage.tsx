@@ -119,7 +119,7 @@ export function MorePage() {
           className="flex w-full items-center justify-between rounded-xl bg-surface px-4 py-3.5 text-left hover:bg-surface-hover"
         >
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[17px]">Petty calorie coach</span>
+            <span className="text-[17px]">Engage nag mode</span>
             <span className="text-sm text-text-muted">
               Nag you before logging over your calorie goal
             </span>

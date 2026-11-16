@@ -1,4 +1,4 @@
-# Food Tracker
+# Hungry
 
 Cronometer-inspired meal diary with a **shared React client** for the website and Capacitor iOS app. Next.js hosts the JSON API, Better Auth / MCP OAuth, and the web SPA.
 

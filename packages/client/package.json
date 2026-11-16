@@ -13,6 +13,7 @@
     "@food-tracker/contracts": "0.1.0",
     "@food-tracker/domain": "0.1.0",
     "@tanstack/react-query": "^5.90.2",
+    "motion": "^14.11.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router-dom": "^7.9.4"

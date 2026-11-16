@@ -366,14 +366,14 @@ async function main() {
   await prisma.oauthResource.upsert({
     where: { identifier: apiResource },
     update: {
-      name: "Food Tracker API",
+      name: "Hungry API",
       allowedScopes: apiScopes,
       disabled: false,
     },
     create: {
       id: crypto.randomUUID(),
       identifier: apiResource,
-      name: "Food Tracker API",
+      name: "Hungry API",
       allowedScopes: apiScopes,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -383,7 +383,7 @@ async function main() {
   await prisma.oauthClient.upsert({
     where: { clientId: IOS_OAUTH_CLIENT_ID },
     update: {
-      name: "Food Tracker iOS",
+      name: "Hungry iOS",
       redirectUris: [IOS_OAUTH_REDIRECT_URI],
       grantTypes: ["authorization_code", "refresh_token"],
       responseTypes: ["code"],
@@ -396,7 +396,7 @@ async function main() {
     create: {
       id: crypto.randomUUID(),
       clientId: IOS_OAUTH_CLIENT_ID,
-      name: "Food Tracker iOS",
+      name: "Hungry iOS",
       redirectUris: [IOS_OAUTH_REDIRECT_URI],
       grantTypes: ["authorization_code", "refresh_token"],
       responseTypes: ["code"],

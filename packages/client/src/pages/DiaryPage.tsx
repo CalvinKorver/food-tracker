@@ -12,6 +12,7 @@ import type { DiaryEntryDto, DayTotals, UserGoals } from "@food-tracker/contract
 import { useAuth } from "../auth";
 import { useApi } from "../config";
 import { AddFoodSheet } from "../components/foods/AddFoodSheet";
+import { CalorieNagConcedeModal } from "../components/foods/CalorieNagConcedeModal";
 import { SwipeToDeleteRow } from "../components/ui/SwipeToDeleteRow";
 
 function Chevron({ direction }: { direction: "left" | "right" }) {
@@ -162,6 +163,7 @@ export function DiaryPage() {
           ? "snack"
           : null;
   const foodId = search.get("foodId");
+  const nagConceded = search.get("nagConceded") === "1";
 
   const diary = useQuery({
     queryKey: ["diary", date],
@@ -174,6 +176,18 @@ export function DiaryPage() {
   }
 
   const day = diary.data;
+  const calorieNag =
+    user && day
+      ? {
+          enabled: user.calorieNagEnabled,
+          dayCalories: day.totals.calories,
+          dayProteinG: day.totals.proteinG,
+          dayFatG: day.totals.fatG,
+          calorieGoal: user.goals?.calorieGoal ?? null,
+          proteinGoalG: user.goals?.proteinGoalG ?? null,
+          fatGoalG: user.goals?.fatGoalG ?? null,
+        }
+      : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -245,12 +259,25 @@ export function DiaryPage() {
           loggedOnKey={day?.dateKey ?? date}
           meal={addMeal}
           initialFoodId={foodId}
-          onClose={() => navigate(`/diary/${date}`, { replace: true })}
+          calorieNag={calorieNag}
+          onClose={(opts) =>
+            navigate(
+              opts?.nagConceded
+                ? `/diary/${date}?nagConceded=1`
+                : `/diary/${date}`,
+              { replace: true },
+            )
+          }
           onCreatedCustom={() =>
             navigate("/foods/new", {
               state: { returnTo: `/diary/${date}?add=${addMeal}` },
             })
           }
+        />
+      ) : null}
+      {!addMeal && !editingEntry && nagConceded ? (
+        <CalorieNagConcedeModal
+          onDismiss={() => navigate(`/diary/${date}`, { replace: true })}
         />
       ) : null}
     </div>

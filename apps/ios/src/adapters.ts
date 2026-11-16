@@ -57,41 +57,157 @@ export const iosCameraAdapter: PlatformAdapters["camera"] = {
   },
 };
 
-async function promptForBarcode(): Promise<string | null> {
-  const code = window.prompt("Enter barcode");
-  const trimmed = code?.trim() ?? "";
-  return trimmed.length > 0 ? trimmed : null;
+const SCAN_FORMATS = [
+  BarcodeFormat.Ean13,
+  BarcodeFormat.Ean8,
+  BarcodeFormat.UpcA,
+  BarcodeFormat.UpcE,
+  BarcodeFormat.Code128,
+  BarcodeFormat.QrCode,
+];
+
+const SCANNER_ACTIVE_CLASS = "barcode-scanner-active";
+
+async function teardownScanner(): Promise<void> {
+  document.documentElement.classList.remove(SCANNER_ACTIVE_CLASS);
+  try {
+    await BarcodeScanner.removeAllListeners();
+  } catch {
+    // plugin unavailable
+  }
+  try {
+    await BarcodeScanner.stopScan();
+  } catch {
+    // not scanning
+  }
 }
 
-/**
- * Native barcode scan via ML Kit. If the scanner is unsupported, permission
- * is denied, or the user cancels, fall back to a typed barcode.
- */
+/** Custom overlay over startScan(); close → null, manual entry is opt-in. */
+function scanWithOverlay(allowCamera: boolean): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let cameraRunning = false;
+    let session = 0;
+
+    const modal = document.createElement("div");
+    modal.className = "barcode-scanner-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-label", "Scan barcode");
+    modal.innerHTML = `
+      <button type="button" class="barcode-scanner-btn barcode-scanner-btn--close" data-action="close" aria-label="Close">✕</button>
+      <div class="barcode-scanner-pane barcode-scanner-pane--camera" data-pane="camera">
+        <p class="barcode-scanner-hint">Point at a barcode</p>
+        <div class="barcode-scanner-viewfinder" aria-hidden="true">
+          <span class="barcode-scanner-dim barcode-scanner-dim--top"></span>
+          <span class="barcode-scanner-dim barcode-scanner-dim--bottom"></span>
+          <span class="barcode-scanner-dim barcode-scanner-dim--left"></span>
+          <span class="barcode-scanner-dim barcode-scanner-dim--right"></span>
+        </div>
+        <button type="button" class="barcode-scanner-btn barcode-scanner-btn--enter" data-action="enter">Enter barcode</button>
+      </div>
+      <div class="barcode-scanner-pane barcode-scanner-pane--manual" data-pane="manual" hidden>
+        <button type="button" class="barcode-scanner-btn barcode-scanner-btn--back" data-action="back"${allowCamera ? "" : " hidden"}>Back to camera</button>
+        <form class="barcode-scanner-form">
+          <label class="barcode-scanner-label" for="barcode-manual-input">Barcode number</label>
+          <input id="barcode-manual-input" class="barcode-scanner-input" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter barcode" />
+          <button type="submit" class="barcode-scanner-btn barcode-scanner-btn--submit">Look up</button>
+        </form>
+      </div>
+    `;
+    document.body.append(modal);
+
+    const cameraPane = modal.querySelector<HTMLElement>('[data-pane="camera"]')!;
+    const manualPane = modal.querySelector<HTMLElement>('[data-pane="manual"]')!;
+    const input = modal.querySelector<HTMLInputElement>("#barcode-manual-input")!;
+    const form = modal.querySelector<HTMLFormElement>("form")!;
+
+    const finish = async (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      session += 1;
+      modal.inert = true;
+      await teardownScanner();
+      modal.remove();
+      resolve(value);
+    };
+
+    const showManual = async () => {
+      session += 1;
+      await teardownScanner();
+      cameraRunning = false;
+      cameraPane.hidden = true;
+      manualPane.hidden = false;
+      input.focus();
+    };
+
+    const startCamera = async () => {
+      if (settled || cameraRunning) return;
+      const mySession = session;
+      document.documentElement.classList.add(SCANNER_ACTIVE_CLASS);
+      try {
+        await BarcodeScanner.addListener("barcodesScanned", (event) => {
+          if (settled) return;
+          const raw = event.barcodes[0]?.rawValue?.trim();
+          if (!raw) return;
+          void finish(raw);
+        });
+        await BarcodeScanner.startScan({ formats: SCAN_FORMATS });
+        if (settled || mySession !== session) {
+          await teardownScanner();
+          return;
+        }
+        cameraRunning = true;
+      } catch {
+        // startScan failed → manual
+        cameraRunning = false;
+        await teardownScanner();
+        if (!settled && mySession === session) await showManual();
+      }
+    };
+
+    const showCamera = async () => {
+      if (!allowCamera || settled) return;
+      manualPane.hidden = true;
+      cameraPane.hidden = false;
+      input.value = "";
+      await startCamera();
+    };
+
+    modal.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+        "[data-action]",
+      );
+      if (!target) return;
+      const action = target.dataset.action;
+      if (action === "close") void finish(null);
+      else if (action === "enter") void showManual();
+      else if (action === "back") void showCamera();
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const trimmed = input.value.trim();
+      void finish(trimmed.length > 0 ? trimmed : null);
+    });
+
+    if (allowCamera) void startCamera();
+    else void showManual();
+  });
+}
+
 export const iosBarcodeAdapter: PlatformAdapters["barcode"] = {
   async scan() {
+    let allowCamera = false;
     try {
       const { supported } = await BarcodeScanner.isSupported();
       if (supported) {
         const permission = await BarcodeScanner.requestPermissions();
-        if (permission.camera === "granted") {
-          const { barcodes } = await BarcodeScanner.scan({
-            formats: [
-              BarcodeFormat.Ean13,
-              BarcodeFormat.Ean8,
-              BarcodeFormat.UpcA,
-              BarcodeFormat.UpcE,
-              BarcodeFormat.Code128,
-              BarcodeFormat.QrCode,
-            ],
-          });
-          const raw = barcodes[0]?.rawValue?.trim();
-          if (raw) return raw;
-        }
+        allowCamera = permission.camera === "granted";
       }
     } catch {
-      // cancelled, unsupported, or plugin unavailable
+      // unsupported / permission / plugin unavailable
     }
-    return promptForBarcode();
+    return scanWithOverlay(allowCamera);
   },
 };
 

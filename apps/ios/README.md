@@ -1,4 +1,4 @@
-# Food Tracker iOS (Capacitor)
+# Hungry iOS (Capacitor)
 
 Bundled Capacitor 7 host for the shared `@food-tracker/client` SPA. The
 WebView loads **only local `dist` assets**. API calls go to
@@ -12,7 +12,7 @@ Redirect URI: `foodtracker://oauth/callback`
 - Node.js 20+
 - macOS with Xcode (for `npx cap add ios`, Simulator, device, and TestFlight)
 - iOS 15.5+ (Google ML Kit barcode scanning)
-- A deployed Food Tracker API over HTTPS
+- A deployed Hungry API over HTTPS
 
 If Xcode / CocoaPods are missing, you can still build web assets here. Run
 `npx cap add ios` later on a Mac with Xcode.

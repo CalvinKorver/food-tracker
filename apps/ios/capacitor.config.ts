@@ -19,7 +19,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  */
 const config: CapacitorConfig = {
   appId: "app.foodtracker.ios",
-  appName: "Food Tracker",
+  appName: "Hungry",
   webDir: "dist",
   server: {
     androidScheme: "https",

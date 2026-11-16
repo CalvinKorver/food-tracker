@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Food Tracker</string>
+        <string>Hungry</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,11 +34,11 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Food Tracker uses the camera to scan barcodes and nutrition labels.</string>
+	<string>Hungry uses the camera to scan barcodes and nutrition labels.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Food Tracker may access your photo library so you can choose a nutrition-label photo.</string>
+	<string>Hungry may access your photo library so you can choose a nutrition-label photo.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Food Tracker does not save photos to your library by default.</string>
+	<string>Hungry does not save photos to your library by default.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

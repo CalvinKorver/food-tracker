@@ -6,7 +6,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Food Tracker",
+  title: "Hungry",
   description: "Track meals, calories, and macros day by day.",
 };
 

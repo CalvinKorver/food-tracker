@@ -39,10 +39,10 @@ const port = await pickPort(preferred);
 
 if (port !== preferred) {
   console.log(
-    `\nPort ${preferred} is busy — starting Food Tracker on http://localhost:${port}\n`,
+    `\nPort ${preferred} is busy — starting Hungry on http://localhost:${port}\n`,
   );
 } else {
-  console.log(`\nFood Tracker → http://localhost:${port}\n`);
+  console.log(`\nHungry → http://localhost:${port}\n`);
 }
 
 const child = spawn(

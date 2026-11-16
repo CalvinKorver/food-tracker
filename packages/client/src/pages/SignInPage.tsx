@@ -40,7 +40,7 @@ export function SignInPage() {
   return (
     <div className="flex flex-col gap-6 pt-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Food Tracker</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Hungry</h1>
         <p className="mt-2 text-sm text-text-muted">Sign in to continue.</p>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
