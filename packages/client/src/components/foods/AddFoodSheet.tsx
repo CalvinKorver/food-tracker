@@ -222,7 +222,9 @@ export function AddFoodSheet({
               <button
                 type="button"
                 onClick={
-                  selected && !isEditing ? () => setSelected(null) : onClose
+                  selected && !isEditing
+                    ? () => setSelected(null)
+                    : () => onClose()
                 }
                 className="text-[17px] text-accent"
               >
@@ -349,7 +351,7 @@ export function AddFoodSheet({
         ) : (
           <FoodSearchSheet
             title={`Add to ${mealLabel(pickedMeal)}`}
-            onClose={onClose}
+            onClose={() => onClose()}
             onSelect={(food) => {
               setSelected(food);
               setError(null);
