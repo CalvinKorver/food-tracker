@@ -9,6 +9,7 @@ import type {
   NativeTokenPair,
   OcrFoodPrefill,
   OffSearchHit,
+  RecipeDetailDto,
   SessionUserDto,
   UpdateFoodEntryInput,
   UsdaSearchHit,
@@ -171,6 +172,15 @@ export function createApiClient({
     createRecipe: (input: CreateRecipeInput) =>
       request<FoodListItem>("/api/v1/foods/recipes", {
         method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    getRecipe: (id: string) =>
+      request<RecipeDetailDto>(`/api/v1/foods/recipes/${id}`),
+
+    updateRecipe: (id: string, input: CreateRecipeInput) =>
+      request<FoodListItem>(`/api/v1/foods/recipes/${id}`, {
+        method: "PUT",
         body: JSON.stringify(input),
       }),
 

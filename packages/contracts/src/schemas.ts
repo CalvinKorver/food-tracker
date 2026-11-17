@@ -130,6 +130,20 @@ export const createRecipeSchema = z.object({
     .min(1),
 });
 
+export const recipeDetailSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  servingsPerRecipe: z.number().positive(),
+  ingredients: z.array(
+    z.object({
+      food: foodListItemSchema,
+      quantity: z.number().positive(),
+      unitMode: quantityUnitModeSchema,
+      selectedUnit: z.string().optional(),
+    }),
+  ),
+});
+
 export const customFoodBodySchema = z.object({
   name: z.string().trim().min(1),
   brand: z.string().nullable().optional(),

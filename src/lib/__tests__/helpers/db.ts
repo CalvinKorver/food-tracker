@@ -12,6 +12,7 @@ export async function resetTestDb() {
   await prisma.account.deleteMany();
   await prisma.favorite.deleteMany();
   await prisma.foodEntry.deleteMany();
+  await prisma.recipeIngredient.deleteMany();
   await prisma.food.deleteMany();
   await prisma.user.deleteMany();
 }

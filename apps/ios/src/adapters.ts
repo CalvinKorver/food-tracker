@@ -69,6 +69,15 @@ const SCAN_FORMATS = [
 const SCANNER_ACTIVE_CLASS = "barcode-scanner-active";
 let handoffModal: HTMLElement | null = null;
 
+/** BarcodeScanner.stopScan() sets WKWebView.backgroundColor = UIColor.white on UIKit's main thread; wait until WebKit composites our opaque DOM state first. */
+function waitForCompositedFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 function dismissHandoffModal(): void {
   handoffModal?.remove();
   handoffModal = null;
@@ -137,18 +146,23 @@ function scanWithOverlay(allowCamera: boolean): Promise<string | null> {
       if (value !== null) {
         modal.classList.add("barcode-scanner-modal--handoff");
         handoffModal = modal;
+      } else {
+        modal.remove();
+        document.documentElement.classList.remove(SCANNER_ACTIVE_CLASS);
       }
+      await waitForCompositedFrame();
       await teardownScanner();
-      if (value === null) modal.remove();
       resolve(value);
     };
 
     const showManual = async () => {
       session += 1;
-      await teardownScanner();
       cameraRunning = false;
       cameraPane.hidden = true;
       manualPane.hidden = false;
+      document.documentElement.classList.remove(SCANNER_ACTIVE_CLASS);
+      await waitForCompositedFrame();
+      await teardownScanner();
       input.focus();
     };
 

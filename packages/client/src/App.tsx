@@ -82,6 +82,7 @@ function AppRoutes() {
           <Route path="/foods/new" element={<FoodFormPage mode="create" />} />
           <Route path="/foods/:id/edit" element={<FoodFormPage mode="edit" />} />
           <Route path="/foods/recipes/new" element={<RecipePage />} />
+          <Route path="/foods/recipes/:id/edit" element={<RecipePage />} />
           <Route path="/more" element={<MorePage />} />
           <Route path="/more/goals" element={<GoalsPage />} />
           <Route path="/more/meal-times" element={<MealTimesPage />} />

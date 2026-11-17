@@ -1,3 +1,4 @@
+import type { RecipeDetailDto } from "@food-tracker/contracts";
 import { prisma } from "@/lib/db";
 import { FoodSource } from "@/generated/prisma/client";
 import {
@@ -137,13 +138,15 @@ async function loadIngredientFoods(
   );
 }
 
-export async function createRecipe(
+type RecipeMutationInput = {
+  name: string;
+  servingsPerRecipe: number;
+  ingredients: RecipeIngredientInput[];
+};
+
+async function prepareRecipeMutation(
   userId: string,
-  input: {
-    name: string;
-    servingsPerRecipe: number;
-    ingredients: RecipeIngredientInput[];
-  },
+  input: RecipeMutationInput,
 ) {
   const name = input.name.trim();
   if (!name) {
@@ -157,10 +160,6 @@ export async function createRecipe(
   }
 
   const foodIds = input.ingredients.map((i) => i.foodId);
-  if (new Set(foodIds).size !== foodIds.length) {
-    // duplicates are fine; just note we don't require unique
-  }
-
   const foods = await loadIngredientFoods(userId, foodIds);
   if (foods.size !== new Set(foodIds).size) {
     throw new Error("One or more ingredients were not found");
@@ -211,6 +210,81 @@ export async function createRecipe(
 
   const totals = computeRecipeTotals(computed);
   const nutrients = perServing(totals, input.servingsPerRecipe);
+  return { name, computed, nutrients };
+}
+
+function nutrientColumns(nutrients: RecipeNutrientTotals) {
+  return {
+    calories: nutrients.calories,
+    proteinG: nutrients.proteinG,
+    carbsG: nutrients.carbsG,
+    fatG: nutrients.fatG,
+    fiberG: nutrients.fiberG,
+    sugarG: nutrients.sugarG,
+    sodiumMg: nutrients.sodiumMg,
+  };
+}
+
+function ingredientRows(
+  recipeId: string,
+  computed: Array<{
+    food: { id: string };
+    servings: number;
+    quantity: number;
+    quantityUnit: string;
+  }>,
+) {
+  return computed.map((c, index) => ({
+    recipeId,
+    ingredientId: c.food.id,
+    servings: c.servings,
+    quantityValue: c.quantity,
+    quantityUnit: c.quantityUnit,
+    position: index,
+  }));
+}
+
+/** Reject direct or transitive recipe cycles before saving `recipeId`. */
+async function assertNoRecipeCycle(
+  recipeId: string,
+  ingredientIds: string[],
+): Promise<void> {
+  if (ingredientIds.includes(recipeId)) {
+    throw new Error("A recipe cannot contain itself");
+  }
+  let frontier = [...new Set(ingredientIds)];
+  const visited = new Set<string>(frontier);
+  for (
+    let depth = 0;
+    depth < MAX_RECOMPUTE_DEPTH && frontier.length > 0;
+    depth++
+  ) {
+    const children = await prisma.recipeIngredient.findMany({
+      where: { recipeId: { in: frontier } },
+      select: { ingredientId: true },
+      distinct: ["ingredientId"],
+    });
+    const next: string[] = [];
+    for (const row of children) {
+      if (row.ingredientId === recipeId) {
+        throw new Error("A recipe cannot contain itself");
+      }
+      if (visited.has(row.ingredientId)) continue;
+      visited.add(row.ingredientId);
+      next.push(row.ingredientId);
+    }
+    frontier = next;
+  }
+}
+
+export async function createRecipe(
+  userId: string,
+  input: RecipeMutationInput,
+) {
+  const { name, computed, nutrients } = await prepareRecipeMutation(
+    userId,
+    input,
+  );
 
   return prisma.$transaction(async (tx) => {
     const recipe = await tx.food.create({
@@ -222,34 +296,138 @@ export async function createRecipe(
         servingQty: 1,
         servingUnit: "serving",
         servingsPerRecipe: input.servingsPerRecipe,
-        calories: nutrients.calories,
-        proteinG: nutrients.proteinG,
-        carbsG: nutrients.carbsG,
-        fatG: nutrients.fatG,
-        fiberG: nutrients.fiberG,
-        sugarG: nutrients.sugarG,
-        sodiumMg: nutrients.sodiumMg,
+        ...nutrientColumns(nutrients),
       },
     });
 
-    // Self-reference guard for future edit flows.
-    if (computed.some((c) => c.food.id === recipe.id)) {
-      throw new Error("A recipe cannot contain itself");
-    }
-
     await tx.recipeIngredient.createMany({
-      data: computed.map((c, index) => ({
-        recipeId: recipe.id,
-        ingredientId: c.food.id,
-        servings: c.servings,
-        quantityValue: c.quantity,
-        quantityUnit: c.quantityUnit,
-        position: index,
-      })),
+      data: ingredientRows(recipe.id, computed),
     });
 
     return recipe;
   });
+}
+
+export async function getRecipeDetail(
+  userId: string,
+  recipeId: string,
+): Promise<RecipeDetailDto | null> {
+  const [recipe, favorites] = await Promise.all([
+    prisma.food.findFirst({
+      where: {
+        id: recipeId,
+        userId,
+        source: FoodSource.recipe,
+      },
+      select: {
+        id: true,
+        name: true,
+        servingsPerRecipe: true,
+        recipeIngredients: {
+          orderBy: { position: "asc" },
+          select: {
+            quantityValue: true,
+            quantityUnit: true,
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+                brand: true,
+                source: true,
+                servingQty: true,
+                servingUnit: true,
+                calories: true,
+                proteinG: true,
+                carbsG: true,
+                fatG: true,
+                fiberG: true,
+                sugarG: true,
+                sodiumMg: true,
+                servingsPerRecipe: true,
+                nutrientsExtra: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.favorite.findMany({
+      where: { userId },
+      select: { foodId: true },
+    }),
+  ]);
+
+  if (!recipe) return null;
+  const favIds = new Set(favorites.map((f) => f.foodId));
+
+  return {
+    id: recipe.id,
+    name: recipe.name,
+    servingsPerRecipe: recipe.servingsPerRecipe ?? 1,
+    ingredients: recipe.recipeIngredients.map((row) => {
+      const unitMode = unitModeFromQuantityUnit(row.quantityUnit);
+      const { nutrientsExtra, ...food } = row.ingredient;
+      return {
+        food: {
+          ...food,
+          portions: portionsFromNutrientsExtra(nutrientsExtra),
+          isFavorite: favIds.has(food.id),
+        },
+        quantity: row.quantityValue,
+        unitMode,
+        selectedUnit: unitMode === "food" ? row.quantityUnit : undefined,
+      };
+    }),
+  };
+}
+
+export async function updateRecipe(
+  userId: string,
+  recipeId: string,
+  input: RecipeMutationInput,
+) {
+  const existing = await prisma.food.findFirst({
+    where: {
+      id: recipeId,
+      userId,
+      source: FoodSource.recipe,
+    },
+    select: { id: true },
+  });
+  if (!existing) {
+    throw new Error("Recipe not found");
+  }
+
+  await assertNoRecipeCycle(
+    recipeId,
+    input.ingredients.map((i) => i.foodId),
+  );
+
+  const { name, computed, nutrients } = await prepareRecipeMutation(
+    userId,
+    input,
+  );
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const recipe = await tx.food.update({
+      where: { id: recipeId },
+      data: {
+        name,
+        servingsPerRecipe: input.servingsPerRecipe,
+        ...nutrientColumns(nutrients),
+      },
+    });
+
+    await tx.recipeIngredient.deleteMany({ where: { recipeId } });
+    await tx.recipeIngredient.createMany({
+      data: ingredientRows(recipeId, computed),
+    });
+
+    return recipe;
+  });
+
+  await recomputeRecipesUsing(recipeId);
+  return updated;
 }
 
 async function recomputeRecipeFood(
@@ -309,15 +487,7 @@ async function recomputeRecipeFood(
 
   await prisma.food.update({
     where: { id: recipe.id },
-    data: {
-      calories: nutrients.calories,
-      proteinG: nutrients.proteinG,
-      carbsG: nutrients.carbsG,
-      fatG: nutrients.fatG,
-      fiberG: nutrients.fiberG,
-      sugarG: nutrients.sugarG,
-      sodiumMg: nutrients.sodiumMg,
-    },
+    data: nutrientColumns(nutrients),
   });
 
   return recipe.id;

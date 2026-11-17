@@ -155,6 +155,18 @@ export type CreateRecipeInput = {
   }>;
 };
 
+export type RecipeDetailDto = {
+  id: string;
+  name: string;
+  servingsPerRecipe: number;
+  ingredients: Array<{
+    food: FoodListItem;
+    quantity: number;
+    unitMode: QuantityUnitMode;
+    selectedUnit?: string;
+  }>;
+};
+
 export type CustomFoodInputDto = {
   name: string;
   brand?: string | null;
