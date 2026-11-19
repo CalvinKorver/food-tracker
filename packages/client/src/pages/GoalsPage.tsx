@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { macroCalories, macroPercents } from "@food-tracker/domain";
 import { useAuth } from "../auth";
 import { useApi } from "../config";
@@ -43,6 +43,7 @@ function numOrEmpty(n: number | null | undefined): string {
 export function GoalsPage() {
   const { user, refreshUser } = useAuth();
   const api = useApi();
+  const queryClient = useQueryClient();
   const initial = user?.goals ?? null;
   const [calorieGoal, setCalorieGoal] = useState(numOrEmpty(initial?.calorieGoal));
   const [proteinGoalG, setProteinGoalG] = useState(numOrEmpty(initial?.proteinGoalG));
@@ -71,7 +72,10 @@ export function GoalsPage() {
       }),
     onSuccess: async () => {
       setSaved(true);
-      await refreshUser();
+      await Promise.all([
+        refreshUser(),
+        queryClient.invalidateQueries({ queryKey: ["discover"] }),
+      ]);
     },
   });
 

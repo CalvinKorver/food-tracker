@@ -131,8 +131,12 @@ function EntryRow({
   const queryClient = useQueryClient();
   const del = useMutation({
     mutationFn: () => api.deleteEntry(entry.id),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["diary", dateKey] }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["diary", dateKey] }),
+        queryClient.invalidateQueries({ queryKey: ["discover"] }),
+      ]);
+    },
   });
 
   return (

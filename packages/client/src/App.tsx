@@ -64,6 +64,7 @@ function VisibilityRefetch() {
       last = now;
       void queryClient.invalidateQueries({ queryKey: ["diary"] });
       void queryClient.invalidateQueries({ queryKey: ["foods"] });
+      void queryClient.invalidateQueries({ queryKey: ["discover"] });
     });
   }, [lifecycle, queryClient]);
   return null;

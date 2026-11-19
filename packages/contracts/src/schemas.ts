@@ -200,6 +200,48 @@ export const nativeTokenPairSchema = z.object({
   user: sessionUserSchema,
 });
 
+export const discoverAveragesSchema = z.object({
+  calories: z.number(),
+  proteinG: z.number(),
+  carbsG: z.number(),
+  netCarbsG: z.number(),
+  fatG: z.number(),
+});
+
+export const discoverDaySchema = z.object({
+  dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  weekdayLabel: z.string().min(1),
+  shortDateLabel: z.string().min(1),
+  entryCount: z.number().int().nonnegative(),
+  logged: z.boolean(),
+  totals: dayTotalsSchema,
+  calorieDelta: z.number().nullable(),
+});
+
+export const discoverWindowSchema = z.object({
+  startDateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  rangeLabel: z.string().min(1),
+  goals: userGoalsSchema.nullable(),
+  loggedDaysCount: z.number().int().min(0).max(7),
+  averages: discoverAveragesSchema.nullable(),
+  avgCalorieDelta: z.number().nullable(),
+  totalCalorieDelta: z.number().nullable(),
+  days: z.array(discoverDaySchema).length(7),
+});
+
+export const discoverSummaryStatusSchema = z.enum([
+  "ready",
+  "empty",
+  "unavailable",
+]);
+
+export const discoverSummarySchema = z.object({
+  status: discoverSummaryStatusSchema,
+  summary: z.string().nullable(),
+  generatedAt: z.string().nullable(),
+});
+
 export const apiOkSchema = <T extends z.ZodType>(data: T) =>
   z.object({ ok: z.literal(true), data });
 

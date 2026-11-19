@@ -1,5 +1,6 @@
 export * from "./calorie-nag";
 export * from "./dates";
+export * from "./discover";
 export * from "./food-shared";
 export * from "./goals";
 export * from "./meal-windows";

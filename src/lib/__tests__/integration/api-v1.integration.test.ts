@@ -385,4 +385,124 @@ describe("api v1 routes", () => {
     );
     expect(revoked.status).toBe(200);
   });
+
+  it("returns 7-day discover stats and caches AI summary until entries change", async () => {
+    const user = await createTestUser();
+    const token = await createTestAccessToken(user.id);
+
+    const { PUT: putGoals } = await import("@/app/api/v1/goals/route");
+    const goalRes = await putGoals(
+      apiRequest("/api/v1/goals", {
+        token,
+        method: "PUT",
+        body: JSON.stringify({
+          calorieGoal: 2200,
+          proteinGoalG: 165,
+          carbsGoalG: 220,
+          fatGoalG: 73,
+        }),
+      }),
+    );
+    expect(goalRes.status).toBe(200);
+
+    const food = await createCustomFood(user.id, {
+      name: "Chicken Bowl",
+      brand: null,
+      servingQty: 1,
+      servingUnit: "bowl",
+      calories: 950,
+      proteinG: 80,
+      carbsG: 90,
+      fatG: 28,
+      fiberG: 10,
+      sugarG: 6,
+      sodiumMg: 900,
+    });
+
+    const { discoverDateKeys, dateFromKey } = await import(
+      "@food-tracker/domain"
+    );
+    const keys = discoverDateKeys(user.timezone);
+    const yesterdayKey = keys[keys.length - 1]!;
+
+    await createFoodEntry({
+      userId: user.id,
+      foodId: food.id,
+      loggedOn: dateFromKey(yesterdayKey),
+      meal: MealType.dinner,
+      quantity: 2,
+      unitMode: "serving",
+    });
+
+    const { GET: getDiscover } = await import("@/app/api/v1/discover/route");
+    const statsRes = await getDiscover(apiRequest("/api/v1/discover", { token }));
+    expect(statsRes.status).toBe(200);
+    const statsBody = await statsRes.json();
+    expect(statsBody.ok).toBe(true);
+    expect(statsBody.data.loggedDaysCount).toBe(1);
+    expect(statsBody.data.avgCalorieDelta).toBe(-300);
+    expect(statsBody.data.days).toHaveLength(7);
+
+    const { prisma } = await import("@/lib/db");
+    const { getOrCreateDiscoverSummary } = await import(
+      "@/lib/discover-summary"
+    );
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content:
+                "Over 1 logged day, you consumed 1,900 kcal for a 300 kcal deficit. Protein hit 160g near your 165g target.",
+            },
+          },
+        ],
+      }),
+    });
+
+    const freshUser1 = (await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    }));
+    const sum1 = await getOrCreateDiscoverSummary({
+      user: freshUser1,
+      apiKey: "sk-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    expect(sum1.status).toBe("ready");
+    expect(sum1.summary).toContain("1,900 kcal");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Repeat call with unchanged entries hits DB cache without calling OpenAI
+    const freshUser2 = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    });
+    const sum2 = await getOrCreateDiscoverSummary({
+      user: freshUser2,
+      apiKey: "sk-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    expect(sum2).toEqual(sum1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Logging another entry invalidates inputHash and triggers regeneration
+    await createFoodEntry({
+      userId: user.id,
+      foodId: food.id,
+      loggedOn: dateFromKey(keys[keys.length - 2]!),
+      meal: MealType.lunch,
+      quantity: 2,
+      unitMode: "serving",
+    });
+    const freshUser3 = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    });
+    await getOrCreateDiscoverSummary({
+      user: freshUser3,
+      apiKey: "sk-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

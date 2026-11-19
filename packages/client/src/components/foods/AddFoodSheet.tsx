@@ -106,7 +106,10 @@ export function AddFoodSheet({
         selectedUnit: unitMode === "food" ? selectedUnit : undefined,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["diary"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["diary"] }),
+        queryClient.invalidateQueries({ queryKey: ["discover"] }),
+      ]);
     },
     onError: (err: Error) => {
       setNagOpen(false);
@@ -121,13 +124,17 @@ export function AddFoodSheet({
         meal: pickedMeal,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["diary"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["diary"] }),
+        queryClient.invalidateQueries({ queryKey: ["discover"] }),
+      ]);
       onClose();
     },
     onError: (err: Error) => setError(err.message),
   });
 
   const resolvingInitial = Boolean(initialFoodId) && !selected && !isEditing;
+  const fromPicker = !isEditing && !initialFoodId && !initialFood;
   const showServings = isEditing || selected || resolvingInitial;
   const saving = isEditing ? update.isPending : add.isPending;
   const foodName = isEditing
@@ -228,10 +235,17 @@ export function AddFoodSheet({
             <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
               <button
                 type="button"
-                onClick={() => onClose()}
+                onClick={() => {
+                  if (fromPicker) {
+                    setSelected(null);
+                    setError(null);
+                  } else {
+                    onClose();
+                  }
+                }}
                 className="text-[17px] text-accent"
               >
-                Cancel
+                {fromPicker ? "Back" : "Cancel"}
               </button>
               <h2 className="text-[17px] font-semibold">
                 {isEditing ? "Edit entry" : "Servings"}
@@ -355,17 +369,22 @@ export function AddFoodSheet({
             </div>
             )}
           </>
-        ) : (
-          <FoodSearchSheet
-            title={`Add to ${mealLabel(pickedMeal)}`}
-            onClose={() => onClose()}
-            onSelect={(food) => {
-              setSelected(food);
-              setError(null);
-            }}
-            onCreateCustom={onCreatedCustom}
-          />
-        )}
+        ) : null}
+        {fromPicker ? (
+          <div
+            className={showServings ? "hidden" : "flex min-h-0 flex-1 flex-col"}
+          >
+            <FoodSearchSheet
+              title={`Add to ${mealLabel(pickedMeal)}`}
+              onClose={() => onClose()}
+              onSelect={(food) => {
+                setSelected(food);
+                setError(null);
+              }}
+              onCreateCustom={onCreatedCustom}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

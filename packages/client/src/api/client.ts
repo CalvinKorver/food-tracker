@@ -4,6 +4,8 @@ import type {
   CustomFoodInputDto,
   DiaryDayDto,
   DiaryEntryDto,
+  DiscoverSummaryDto,
+  DiscoverWindowDto,
   FoodListItem,
   MealWindows,
   NativeTokenPair,
@@ -128,6 +130,11 @@ export function createApiClient({
     exportData: () => request<unknown>("/api/v1/me/export"),
 
     getDiary: (date: string) => request<DiaryDayDto>(`/api/v1/diary/${date}`),
+
+    getDiscover: () => request<DiscoverWindowDto>("/api/v1/discover"),
+
+    getDiscoverSummary: () =>
+      request<DiscoverSummaryDto>("/api/v1/discover/summary"),
 
     addEntry: (input: AddFoodEntryInput) =>
       request<DiaryEntryDto>("/api/v1/entries", {

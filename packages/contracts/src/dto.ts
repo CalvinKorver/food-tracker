@@ -192,6 +192,44 @@ export type NativeTokenPair = {
   user: SessionUserDto;
 };
 
+export type DiscoverAveragesDto = {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  netCarbsG: number;
+  fatG: number;
+};
+
+export type DiscoverDayDto = {
+  dateKey: string;
+  weekdayLabel: string;
+  shortDateLabel: string;
+  entryCount: number;
+  logged: boolean;
+  totals: DayTotals;
+  calorieDelta: number | null;
+};
+
+export type DiscoverWindowDto = {
+  startDateKey: string;
+  endDateKey: string;
+  rangeLabel: string;
+  goals: UserGoals | null;
+  loggedDaysCount: number;
+  averages: DiscoverAveragesDto | null;
+  avgCalorieDelta: number | null;
+  totalCalorieDelta: number | null;
+  days: DiscoverDayDto[];
+};
+
+export type DiscoverSummaryStatus = "ready" | "empty" | "unavailable";
+
+export type DiscoverSummaryDto = {
+  status: DiscoverSummaryStatus;
+  summary: string | null;
+  generatedAt: string | null;
+};
+
 export type ApiOk<T> = { ok: true; data: T };
 export type ApiErr = { ok: false; error: string; field?: string };
 export type ApiResult<T> = ApiOk<T> | ApiErr;
