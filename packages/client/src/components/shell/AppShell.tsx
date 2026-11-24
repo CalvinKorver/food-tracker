@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { FoodListItem } from "@food-tracker/contracts";
 import { DEFAULT_MEAL_WINDOWS, suggestedMealForLocalTime } from "@food-tracker/domain";
+import { ApiError } from "../../api";
 import { useAuth } from "../../auth";
 import { useApi } from "../../config";
 import { usePlatform } from "../../platform";
@@ -68,6 +69,10 @@ export function AppShell() {
       });
     } catch (err) {
       barcode.dismiss();
+      if (err instanceof ApiError && err.status === 404) {
+        navigate("/foods/new", { state: { returnTo: addPath() } });
+        return;
+      }
       setBusy(err instanceof Error ? err.message : "Barcode lookup failed");
     }
   }
@@ -78,7 +83,9 @@ export function AppShell() {
     if (!capture) return;
     try {
       const { values } = await api.parseNutritionLabel(capture);
-      navigate("/foods/new", { state: { prefill: values, source: "ocr" } });
+      navigate("/foods/new", {
+        state: { prefill: values, source: "ocr", returnTo: addPath() },
+      });
     } catch (err) {
       setBusy(err instanceof Error ? err.message : "Could not read label");
     }
